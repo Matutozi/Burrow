@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { onActivityChanged, readActivity } from '../activity/store';
 import { activityFor, EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
+import { captureTexts } from '../archive/capture';
 import { archiveBlocker } from '../archive/record';
 import { archiveTabs, undoArchive, type ArchiveRequest } from '../archive/store';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { createScorer, type Scorer, type TabScore, type TabSignals } from '../scoring/score';
-import { closeTabs, pageOpener, type TabPlace } from './chromeTabs';
+import { closeTabs, hasCaptureAccess, pageOpener, readPageText, type TabPlace } from './chromeTabs';
 import { ARCHIVE_TEXT, formatArchiveResult, formatReasons } from './format';
 import type { Notify } from './Toast';
 
@@ -163,6 +164,8 @@ async function freshCandidates(ids: number[], scorer: Scorer, activity: Activity
   const tabs = await Promise.all(ids.map((id) => chrome.tabs.get(id).catch(() => null)));
   const requests: ArchiveRequest[] = [];
   const places = new Map<string, TabPlace>();
+  // Sleeping (discarded) tabs have no page loaded, so there is nothing to read from them.
+  const readable: number[] = [];
   for (const tab of tabs) {
     if (!tab || tab.id === undefined || tab.incognito) continue;
     const result = scorer.score(signalsOf(tab, activity, now), now);
@@ -174,6 +177,17 @@ async function freshCandidates(ids: number[], scorer: Scorer, activity: Activity
       policy: prefs.indexPolicy[result.contentType],
     });
     places.set(url, { windowId: tab.windowId, index: tab.index });
+    if (prefs.indexPolicy[result.contentType] === 'full' && !tab.discarded && archiveBlocker(url, 'full') === null) {
+      readable.push(tab.id);
+    }
+  }
+
+  if (prefs.captureText && readable.length > 0 && (await hasCaptureAccess())) {
+    const texts = await captureTexts(readable, readPageText);
+    for (const req of requests) {
+      const text = texts.get(req.tabId);
+      if (text) req.input.text = text;
+    }
   }
   return { requests, places };
 }
@@ -194,7 +208,7 @@ export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpen
       const count = (reason: string) => result.skipped.filter((s) => s.reason === reason).length;
       const archived = result.archivedTabIds.length;
       notify({
-        text: formatArchiveResult(archived, result.closeFailedTabIds.length, count('sensitive'), count('notWebPage')),
+        text: formatArchiveResult(archived, result.closeFailedTabIds.length, count('sensitive'), count('notWebPage'), result.textDropped),
         undo:
           archived > 0
             ? async () => {

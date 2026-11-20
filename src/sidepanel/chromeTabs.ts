@@ -1,3 +1,4 @@
+import { CAPTURE_LIMITS, CAPTURE_PERMISSIONS, extractPageText } from '../archive/capture';
 import type { ArchiveRecord } from '../archive/record';
 
 /** Where a tab was, so undo can put it back in the same window and position. */
@@ -47,4 +48,33 @@ export function downloadJson(data: unknown, fileName: string): void {
   a.download = fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** True when the user has granted page access for text capture. */
+export async function hasCaptureAccess(): Promise<boolean> {
+  try {
+    return await chrome.permissions.contains(CAPTURE_PERMISSIONS);
+  } catch {
+    return false;
+  }
+}
+
+/** Asks Chrome for page access. Must be called from a click, before any other await. */
+export function requestCaptureAccess(): Promise<boolean> {
+  return chrome.permissions.request(CAPTURE_PERMISSIONS);
+}
+
+/** Gives page access back when the user turns capture off. */
+export async function releaseCaptureAccess(): Promise<void> {
+  await chrome.permissions.remove(CAPTURE_PERMISSIONS);
+}
+
+/** Reads a tab's text with the in-page extractor. Resolves to null if the page offers nothing. */
+export async function readPageText(tabId: number): Promise<unknown> {
+  const [first] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: extractPageText,
+    args: [CAPTURE_LIMITS.maxRawChars],
+  });
+  return first?.result ?? null;
 }

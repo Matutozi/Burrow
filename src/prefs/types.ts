@@ -65,7 +65,7 @@ export interface SiteRule {
 }
 
 /** Current schema version. Bump it and add a migration in validate.ts when the shape changes. */
-export const PREFERENCES_VERSION = 1;
+export const PREFERENCES_VERSION = 2;
 
 export interface Preferences {
   version: typeof PREFERENCES_VERSION;
@@ -95,4 +95,9 @@ export interface Preferences {
   trackActivity: boolean;
   /** Stop counting time on a tab after this many seconds without keyboard or mouse input. */
   idleAfterSeconds: number;
+  /**
+   * Save the readable text of pages whose index policy is 'full' when archiving them. Needs the
+   * optional `scripting` and host permissions, which the user grants when turning this on. (v2)
+   */
+  captureText: boolean;
 }

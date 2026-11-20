@@ -3,8 +3,7 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: early MVP (step 3 of 7). Setup, scoring, activity tracking and archiving work. Page-text capture and
-> full-text search are next.
+> Status: early MVP (step 4 of 7). Setup, scoring, activity tracking, archiving and page-text search work.
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -19,6 +18,12 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   address first and closes the tab only once that is stored. Every archive can be undone, and archived pages
   can be searched, reopened or deleted from the **Archive** view. Pages whose type is set to "never save"
   (email, banking and health by default) are never archived, so they stay open.
+- **Search inside archived pages (opt-in):** turn on "Save the text of Full text pages" in
+  **Preferences → What to save** and Chrome asks you to allow page access. Burrow then saves up to
+  8,000 characters of readable text when you archive a "Full text" page, and the Archive search shows
+  a snippet around each match. It reads a page only at the moment you archive it, skips pages with a
+  password box, and falls back to the title if a page can't be read in 3 seconds or storage is full.
+  Turning it off gives the permission back to Chrome.
 - **Your data, your file:** export everything Burrow keeps as JSON, or delete the whole archive (with undo).
 - **Private by design:** no servers, no network requests (blocked by the extension's security
   policy), no analytics. Preferences sync only through your own Chrome profile. Archived pages
@@ -62,6 +67,7 @@ npm run build      # production build into dist/
 | `storage` | Save your preferences in your Chrome profile and archived pages on this device. |
 | `sidePanel` | Show Burrow in Chrome's side panel. |
 | `idle` | Pause time counting when you step away or lock your screen, so scores reflect real use. |
+| `scripting` + access to `http`/`https` sites (**optional**) | Only if you turn on page-text saving: read the text of a page at the moment you archive it. Not requested at install. |
 
 See [PRIVACY.md](PRIVACY.md) for the full privacy policy and [CLAUDE.md](CLAUDE.md) for
 engineering rules.

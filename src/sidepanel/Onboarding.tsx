@@ -1,4 +1,4 @@
-import { useId, useState } from 'preact/hooks';
+import { useEffect, useId, useState } from 'preact/hooks';
 import { DEFAULT_WEIGHTS, PERSONA_LABELS, PERSONA_PRIORITIES } from '../prefs/defaults';
 import { formatSiteRules, parseSiteRules } from '../prefs/siteRules';
 import {
@@ -11,6 +11,8 @@ import {
   type ScoringWeights,
 } from '../prefs/types';
 import { cleanDomain, LIMITS } from '../prefs/validate';
+import { hasCaptureAccess, releaseCaptureAccess, requestCaptureAccess } from './chromeTabs';
+import { ARCHIVE_TEXT } from './format';
 
 interface Props {
   initial: Preferences;
@@ -96,6 +98,13 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
   const [rulesText, setRulesText] = useState(formatSiteRules(initial.siteRules));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  /** Whether Chrome currently grants page access. Null until checked. */
+  const [captureAccess, setCaptureAccess] = useState<boolean | null>(null);
+  const [captureDenied, setCaptureDenied] = useState(false);
+
+  useEffect(() => {
+    void hasCaptureAccess().then(setCaptureAccess);
+  }, []);
 
   const important = parseDomains(importantText);
   const low = parseDomains(lowText);
@@ -106,6 +115,28 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
   // Only reset priorities when the persona actually changes, so edits aren't lost by a stray click.
   const choosePersona = (persona: Persona) => {
     if (persona !== prefs.persona) update({ persona, contentPriority: { ...PERSONA_PRIORITIES[persona] } });
+  };
+
+  const toggleCapture = (on: boolean) => {
+    setCaptureDenied(false);
+    if (!on) {
+      update({ captureText: false });
+      setCaptureAccess(false);
+      releaseCaptureAccess().catch((err: unknown) => console.error('Burrow: could not release page access', err));
+      return;
+    }
+    // Chrome only shows the prompt during a click, so request before anything else awaits.
+    requestCaptureAccess().then(
+      (granted) => {
+        setCaptureAccess(granted);
+        setCaptureDenied(!granted);
+        if (granted) update({ captureText: true });
+      },
+      (err: unknown) => {
+        console.error('Burrow: page access request failed', err);
+        setCaptureDenied(true);
+      },
+    );
   };
 
   const finish = async () => {
@@ -260,6 +291,19 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
               </li>
             ))}
           </ul>
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={prefs.captureText && captureAccess !== false}
+              onChange={(e) => toggleCapture(e.currentTarget.checked)}
+            />
+            {ARCHIVE_TEXT.captureLabel}
+          </label>
+          <small class="muted">{ARCHIVE_TEXT.captureHelp}</small>
+          {captureDenied && <p class="error-text">{ARCHIVE_TEXT.captureDenied}</p>}
+          {prefs.captureText && captureAccess === false && !captureDenied && (
+            <p class="error-text">{ARCHIVE_TEXT.captureMissing}</p>
+          )}
         </section>
       )}
 

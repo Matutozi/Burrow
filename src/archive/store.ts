@@ -1,5 +1,14 @@
 import type { IndexPolicy } from '../prefs/types';
-import { archiveBlocker, buildRecord, sanitizeRecord, sortRecords, type ArchiveInput, type ArchiveRecord, type NotArchivableReason } from './record';
+import {
+  archiveBlocker,
+  buildRecord,
+  sanitizeRecord,
+  sortRecords,
+  withoutText,
+  type ArchiveInput,
+  type ArchiveRecord,
+  type NotArchivableReason,
+} from './record';
 
 /**
  * Archived pages live in chrome.storage.local: on this device only, never synced. Each record has
@@ -75,6 +84,8 @@ export interface ArchiveResult {
   /** Saved tabs Chrome could not close (they stay open; their records are kept). */
   closeFailedTabIds: number[];
   skipped: { tabId: number; reason: NotArchivableReason }[];
+  /** Storage was too full for page text, so these pages were saved with their title only. */
+  textDropped: boolean;
   undo: ArchiveUndo;
 }
 
@@ -102,13 +113,23 @@ export async function archiveTabs(requests: ArchiveRequest[], deps: ArchiveDeps)
   }
 
   // Two tabs with the same address share one record.
-  const saved = [...new Map(toSave.map((s) => [s.record.id, s.record])).values()];
+  let saved = [...new Map(toSave.map((s) => [s.record.id, s.record])).values()];
   const previous = await readRecords(saved.map((r) => r.id), area);
-  await putRecords(saved, area);
+  let textDropped = false;
+  try {
+    await putRecords(saved, area);
+  } catch (err) {
+    // Usually the storage quota. Page text is the bulk of a record, so retry with titles only.
+    // If that fails too, this throws and no tab is closed.
+    if (!saved.some((r) => r.text)) throw err;
+    saved = saved.map(withoutText);
+    await putRecords(saved, area);
+    textDropped = true;
+  }
 
   const archivedTabIds = toSave.map((s) => s.tabId);
   const closeFailedTabIds = archivedTabIds.length > 0 ? await deps.closeTabs(archivedTabIds) : [];
-  return { archivedTabIds, closeFailedTabIds, skipped, undo: { saved, previous } };
+  return { archivedTabIds, closeFailedTabIds, skipped, textDropped, undo: { saved, previous } };
 }
 
 /**

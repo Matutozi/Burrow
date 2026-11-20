@@ -55,7 +55,7 @@ describe('archive records', () => {
     expect(sanitizeRecord('junk', 'x')).toBeNull();
     expect(sanitizeRecord({ url: 'javascript:alert(1)' }, 'x')).toBeNull();
     expect(sanitizeRecord({ url: 'https://a.com', score: 'NaN', contentType: 'nope', archivedAt: -4 }, 'x')).toEqual({
-      v: 1,
+      v: 2,
       id: 'x',
       url: 'https://a.com',
       title: '',
@@ -115,6 +115,21 @@ describe('archiving tabs', () => {
       { tabId: 1, reason: 'sensitive' },
       { tabId: 2, reason: 'notWebPage' },
     ]);
+  });
+
+  it('falls back to titles only when storage is too full for page text', async () => {
+    const { area, closed, closeTabs } = setup();
+    const set = area.set.bind(area);
+    area.set = async (items) => {
+      if (JSON.stringify(items).includes('"text"')) throw new Error('QUOTA_BYTES quota exceeded');
+      return set(items);
+    };
+    const withText = { ...req(1, 'https://a.com'), input: { ...req(1, 'https://a.com').input, text: 'page body' } };
+    const result = await archiveTabs([withText], { area, now: 1, closeTabs });
+    expect(result.textDropped).toBe(true);
+    expect(closed).toEqual([1]);
+    expect((await listArchive(area))[0]).toMatchObject({ saved: 'title' });
+    expect((await listArchive(area))[0]).not.toHaveProperty('text');
   });
 
   it('reports tabs Chrome could not close and keeps their records', async () => {

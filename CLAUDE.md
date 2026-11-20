@@ -62,7 +62,8 @@ These rules are non-negotiable. Every change must follow them.
 ## Layout
 - `src/background/service-worker.ts`: event wiring only
 - `src/activity/`: pure activity reducer (`tracker.ts`) and the serialised session store (`store.ts`)
-- `src/archive/`: pure record logic (`record.ts`), save-then-close archive store with undo (`store.ts`), data export
+- `src/archive/`: pure record logic and search (`record.ts`), save-then-close archive store with undo (`store.ts`),
+  opt-in page-text capture (`capture.ts`), data export
 - `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
 - `src/sidepanel/`: Preact UI (setup wizard, tab list, archive) and all user-facing wording (`format.ts`)

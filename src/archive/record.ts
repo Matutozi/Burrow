@@ -3,10 +3,11 @@
  * they are searched. No Chrome APIs here, so every edge case is unit-tested.
  */
 import { hostOf } from '../prefs/classify';
+import { CAPTURE_LIMITS, cleanText } from './capture';
 import { CONTENT_TYPES, type ContentType, type IndexPolicy } from '../prefs/types';
 
 /** Current record shape. Bump it and add a step in `migrateRecord` when the shape changes. */
-export const ARCHIVE_VERSION = 1;
+export const ARCHIVE_VERSION = 2;
 
 export const ARCHIVE_LIMITS = {
   maxTitleLength: 500,
@@ -26,6 +27,8 @@ export interface ArchiveRecord {
   archivedAt: number;
   /** What was saved, following the user's index policy for this content type. */
   saved: Exclude<IndexPolicy, 'never'>;
+  /** Readable page text, only when saved is 'full'. (v2) */
+  text?: string;
 }
 
 /** Everything needed to archive one open tab. */
@@ -34,6 +37,8 @@ export interface ArchiveInput {
   title: string;
   contentType: ContentType;
   score: number;
+  /** Captured page text. Kept only when the policy is 'full'. */
+  text?: string;
 }
 
 type Raw = Record<string, unknown>;
@@ -74,12 +79,23 @@ export async function buildRecord(input: ArchiveInput, policy: IndexPolicy, now:
     contentType: input.contentType,
     score: Math.round(Math.min(100, Math.max(0, Number.isFinite(input.score) ? input.score : 0))),
     archivedAt: now,
-    // Page text capture comes later. Until then a "full" policy stores the same as "title".
-    saved: 'title',
+    ...withText(policy === 'full' ? input.text : undefined),
   };
 }
 
-/** Upgrades older stored shapes. v1 is the first. */
+/** The saved level and text fields: 'full' only when there is text to keep. */
+function withText(raw: unknown): Pick<ArchiveRecord, 'saved' | 'text'> {
+  const text = cleanText(raw, CAPTURE_LIMITS.maxTextChars);
+  return text ? { saved: 'full', text } : { saved: 'title' };
+}
+
+/** The same record with its page text removed, for when storage is too full to hold it. */
+export function withoutText(record: ArchiveRecord): ArchiveRecord {
+  const { text: _text, ...rest } = record;
+  return { ...rest, saved: 'title' };
+}
+
+/** Upgrades older stored shapes. v1 -> v2 added optional `text`, so v1 records are already valid. */
 function migrateRecord(raw: Raw): Raw {
   return raw;
 }
@@ -103,7 +119,7 @@ export function sanitizeRecord(input: unknown, id: string): ArchiveRecord | null
     contentType,
     score,
     archivedAt: Math.max(0, archivedAt),
-    saved: raw.saved === 'full' ? 'full' : 'title',
+    ...withText(raw.saved === 'full' ? raw.text : undefined),
   };
 }
 
@@ -112,15 +128,44 @@ export function sortRecords(records: ArchiveRecord[]): ArchiveRecord[] {
   return [...records].sort((a, b) => b.archivedAt - a.archivedAt || a.url.localeCompare(b.url));
 }
 
+function queryWords(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+export type ArchiveSearch = (query: string) => ArchiveRecord[];
+
 /**
- * Simple search: every word in the query must appear in the title or address (case-insensitive).
- * Full-text search arrives with page capture.
+ * Compiles a search over the records once (lowercasing every title, address and page text), so
+ * each keystroke only scans. Every word in the query must appear somewhere in the record.
  */
+export function createArchiveSearch(records: ArchiveRecord[]): ArchiveSearch {
+  const hays = records.map((r) => `${r.title} ${r.url} ${r.text ?? ''}`.toLowerCase());
+  return (query) => {
+    const words = queryWords(query);
+    if (words.length === 0) return records;
+    return records.filter((_, i) => words.every((w) => hays[i]?.includes(w)));
+  };
+}
+
+/** One-off convenience. Prefer createArchiveSearch when searching repeatedly. */
 export function searchRecords(records: ArchiveRecord[], query: string): ArchiveRecord[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return records;
-  return records.filter((r) => {
-    const hay = `${r.title} ${r.url}`.toLowerCase();
-    return words.every((w) => hay.includes(w));
-  });
+  return createArchiveSearch(records)(query);
+}
+
+/**
+ * A short excerpt of the page text around the first query word found there, or null when the
+ * words only matched the title or address. `radius` is characters on each side.
+ */
+export function textSnippet(record: ArchiveRecord, query: string, radius = 60): string | null {
+  const text = record.text;
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  for (const w of queryWords(query)) {
+    const at = lower.indexOf(w);
+    if (at === -1) continue;
+    const start = Math.max(0, at - radius);
+    const end = Math.min(text.length, at + w.length + radius);
+    return `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`;
+  }
+  return null;
 }

@@ -108,7 +108,11 @@ function weights(v: unknown): ScoringWeights {
  */
 function migrate(raw: Raw): Raw {
   // v1 is the first schema. Data with a missing version predates versioning and has the v1 shape.
-  return raw;
+  let out = raw;
+  const version = typeof out.version === 'number' ? out.version : 1;
+  // v1 -> v2: added captureText. Existing users never granted page access, so it starts off.
+  if (version < 2) out = { ...out, captureText: false };
+  return out;
 }
 
 /** Turns anything read from storage into valid Preferences. Never throws. */
@@ -135,5 +139,6 @@ export function sanitizePreferences(input: unknown): Preferences {
     mode: oneOf(raw.mode, ['suggest', 'auto'] as const, base.mode),
     trackActivity: bool(raw.trackActivity, base.trackActivity),
     idleAfterSeconds: Math.round(clampNumber(raw.idleAfterSeconds, LIMITS.idleAfterSeconds, base.idleAfterSeconds)),
+    captureText: bool(raw.captureText, base.captureText),
   };
 }

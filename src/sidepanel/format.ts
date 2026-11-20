@@ -51,12 +51,19 @@ export function formatReasons(reasons: ScoreReason[]): string {
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Toast after archiving. */
-export function formatArchiveResult(archived: number, closeFailed: number, sensitive: number, notWebPage: number): string {
+export function formatArchiveResult(
+  archived: number,
+  closeFailed: number,
+  sensitive: number,
+  notWebPage: number,
+  textDropped = false,
+): string {
   const parts: string[] = [];
   if (archived > 0) parts.push(`Archived ${plural(archived, 'tab')}`);
   if (closeFailed > 0) parts.push(`${plural(closeFailed, 'tab')} couldn't be closed but ${closeFailed === 1 ? 'is' : 'are'} saved`);
   if (sensitive > 0) parts.push(`${plural(sensitive, 'sensitive tab')} left open (set to "never save")`);
   if (notWebPage > 0) parts.push(`${plural(notWebPage, 'browser page')} left open`);
+  if (textDropped) parts.push('storage is full, so only titles were saved');
   return parts.length > 0 ? parts.join(' · ') : 'Nothing to archive';
 }
 
@@ -77,6 +84,12 @@ export const ARCHIVE_TEXT = {
   count: (n: number) => plural(n, 'archived page'),
   empty: 'Nothing archived yet. Tabs you archive appear here, ready to reopen.',
   noMatches: 'No archived pages match.',
+  fullText: 'full text',
+  captureLabel: 'Save the text of "Full text" pages so I can search inside them',
+  captureHelp:
+    'Chrome will ask to let Burrow read pages. Burrow reads a page only when you archive it, never sends it anywhere, and skips pages with a password box.',
+  captureDenied: 'Page access was not granted, so Burrow saves titles only.',
+  captureMissing: 'Page access was removed in Chrome settings. Turn this on again to save page text.',
 };
 
 export function formatDate(epochMs: number): string {

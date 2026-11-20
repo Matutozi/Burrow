@@ -72,6 +72,20 @@ describe('sanitizePreferences', () => {
   });
 });
 
+describe('migration', () => {
+  it('upgrades v1 data to v2 with page-text capture off', () => {
+    const p = sanitizePreferences({ version: 1, topics: ['kept'], captureText: true });
+    expect(p.version).toBe(2);
+    expect(p.captureText).toBe(false);
+    expect(p.topics).toEqual(['kept']);
+  });
+
+  it('keeps captureText for v2 data', () => {
+    expect(sanitizePreferences({ version: 2, captureText: true }).captureText).toBe(true);
+    expect(sanitizePreferences({ version: 2, captureText: 'yes' }).captureText).toBe(false);
+  });
+});
+
 describe('cleanDomain', () => {
   it.each([
     ['example.com', 'example.com'],

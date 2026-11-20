@@ -85,5 +85,7 @@ export function defaultPreferences(persona: Persona = 'general'): Preferences {
     mode: 'suggest',
     trackActivity: true,
     idleAfterSeconds: 120,
+    // Off until the user opts in and grants page access.
+    captureText: false,
   };
 }

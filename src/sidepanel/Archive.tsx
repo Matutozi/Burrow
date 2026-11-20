@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { buildExport, exportFileName } from '../archive/export';
-import { searchRecords, type ArchiveRecord } from '../archive/record';
+import { createArchiveSearch, textSnippet, type ArchiveRecord } from '../archive/record';
 import { listArchive, onArchiveChanged, putRecords, removeRecords, restoreRecords } from '../archive/store';
 import { hostOf } from '../prefs/classify';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
@@ -10,6 +10,17 @@ import type { Notify } from './Toast';
 
 /** Rows rendered at once. More load on request, so huge archives stay fast. */
 const PAGE_SIZE = 200;
+/** Wait this long after typing stops before searching, so big archives don't stutter. */
+const SEARCH_DEBOUNCE_MS = 120;
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return debounced;
+}
 
 /** All archived records, kept fresh across side panels and windows. */
 export function useArchive(): ArchiveRecord[] {
@@ -43,7 +54,9 @@ interface Props {
 export function ArchiveView({ prefs, records, notify, onBack }: Props) {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const matches = useMemo(() => searchRecords(records, query), [records, query]);
+  const search = useMemo(() => createArchiveSearch(records), [records]);
+  const activeQuery = useDebounced(query, SEARCH_DEBOUNCE_MS);
+  const matches = useMemo(() => search(activeQuery), [search, activeQuery]);
   const shown = matches.slice(0, limit);
 
   async function deleteWithUndo(targets: ArchiveRecord[]) {
@@ -99,7 +112,7 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
       <input
         type="search"
         class="search"
-        placeholder="Search archived pages"
+        placeholder="Search titles, addresses and saved text"
         aria-label="Search archived pages"
         value={query}
         onInput={(e) => {
@@ -108,29 +121,41 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
         }}
       />
       <p class="summary">
-        {query ? `${matches.length} of ${ARCHIVE_TEXT.count(records.length)}` : ARCHIVE_TEXT.count(records.length)}
+        {activeQuery
+          ? `${matches.length} of ${ARCHIVE_TEXT.count(records.length)}`
+          : ARCHIVE_TEXT.count(records.length)}
       </p>
 
       {records.length === 0 && <p class="muted">{ARCHIVE_TEXT.empty}</p>}
       {records.length > 0 && matches.length === 0 && <p class="muted">{ARCHIVE_TEXT.noMatches}</p>}
 
       <ul class="tabs">
-        {shown.map((r) => (
-          <li key={r.id} class="row">
-            <button type="button" class="tab" onClick={() => void restore(r)} title={`Reopen ${r.url}`}>
-              <span class="body">
-                <span class="title">{r.title || r.url}</span>
-                <span class="reason">
-                  <span class="type">{CONTENT_TYPE_LABELS[r.contentType]}</span>
-                  {hostOf(r.url)} · {formatDate(r.archivedAt)}
+        {shown.map((r) => {
+          const snippet = activeQuery ? textSnippet(r, activeQuery) : null;
+          return (
+            <li key={r.id} class="row">
+              <button type="button" class="tab" onClick={() => void restore(r)} title={`Reopen ${r.url}`}>
+                <span class="body">
+                  <span class="title">{r.title || r.url}</span>
+                  <span class="reason">
+                    <span class="type">{CONTENT_TYPE_LABELS[r.contentType]}</span>
+                    {r.saved === 'full' && <span class="type">{ARCHIVE_TEXT.fullText}</span>}
+                    {hostOf(r.url)} · {formatDate(r.archivedAt)}
+                  </span>
+                  {snippet && <span class="snippet">{snippet}</span>}
                 </span>
-              </span>
-            </button>
-            <button type="button" class="link" onClick={() => void deleteWithUndo([r])} aria-label={`Delete ${r.title || r.url}`}>
-              Delete
-            </button>
-          </li>
-        ))}
+              </button>
+              <button
+                type="button"
+                class="link"
+                onClick={() => void deleteWithUndo([r])}
+                aria-label={`Delete ${r.title || r.url}`}
+              >
+                Delete
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {matches.length > limit && (
         <button type="button" class="secondary small more" onClick={() => setLimit(limit + PAGE_SIZE)}>
