@@ -3,7 +3,7 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: early MVP (step 1 of 7). Scoring and setup work. Archiving and search are coming next.
+> Status: early MVP (step 2 of 7). Setup, scoring and activity tracking work. Archiving and search are next.
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -13,15 +13,18 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   `9 · last opened 3 days ago (+9)`.
 - **Fully configurable:** every scoring weight can be tuned, and your own site rules
   override the built-in lists.
-- **Private by design:** no servers, no network requests, no analytics. Preferences sync only
-  through your own Chrome profile.
+- **Activity-aware:** visits and real time spent on each tab feed the score.
+- **Private by design:** no servers, no network requests (blocked by the extension's security
+  policy), no analytics. Preferences sync only through your own Chrome profile. Activity stays
+  in memory and is cleared when Chrome closes.
 
 ## How scoring works
 ```
 score = recency + activity + content priority + topic match − low-priority site penalty
 ```
 - **Recency** (default up to 70): halves every third of your stale period.
-- **Activity** (default up to 15): visits and time on page (tracking arrives in step 2).
+- **Activity** (default up to 15): half from visits, half from time on the tab. Time counts only
+  while the tab is in front, Chrome is focused, and you're not idle. You can switch it off.
 - **Content priority** (default ±20): from your High/Low choices per content type.
 - **Topic match** (default +15): the tab mentions one of your topics.
 - **Low-priority site** (default −25).
@@ -52,6 +55,7 @@ npm run build      # production build into dist/
 | `tabs` | Read tab titles, addresses and last-used times to score them, and switch to a tab when you click it. |
 | `storage` | Save your preferences in your Chrome profile. |
 | `sidePanel` | Show Burrow in Chrome's side panel. |
+| `idle` | Pause time counting when you step away or lock your screen, so scores reflect real use. |
 
 See [PRIVACY.md](PRIVACY.md) for the full privacy policy and [CLAUDE.md](CLAUDE.md) for
 engineering rules.

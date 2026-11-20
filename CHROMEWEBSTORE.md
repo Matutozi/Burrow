@@ -1,6 +1,6 @@
 # Chrome Web Store Listing: Burrow
 
-> Last Updated: 2026-11-20 · Not yet published (MVP step 1 of 7)
+> Last Updated: 2026-11-20 · Not yet published (MVP step 2 of 7)
 
 ## Store Listing
 
@@ -9,13 +9,13 @@
 **Short Description:** Scores your open tabs by how you use them and what matters to you, so you can clear clutter without losing anything.
 
 **Detailed Description:**
-Burrow gives every open tab a score from 0 to 100 and tells you why, so you can see at a glance which tabs matter and which are clutter.
+Burrow gives every open tab a score from 0 to 100, based on how recently and how much you actually use it, and tells you why, so you can see at a glance which tabs matter and which are clutter.
 
 Tell Burrow what matters to you: the kind of work you do, which types of pages are important, the topics you follow, and the sites you always or never care about. Scores follow your preferences, and you can fine-tune every part of the formula.
 
 How to use it: click the Burrow icon to open the side panel, answer a few setup questions, and your tabs appear sorted into "Clutter" and "Keeping", each with a score and a short reason. Click any tab to jump to it.
 
-Privacy: Burrow runs entirely in your browser. It has no servers, sends nothing over the internet, and contains no analytics or tracking. Your preferences are stored in your own Chrome profile.
+Privacy: Burrow runs entirely in your browser. It has no servers, sends nothing over the internet, and contains no analytics or third-party tracking. Your preferences are stored in your own Chrome profile, and usage counts are kept in memory only and cleared when Chrome closes.
 
 Support: https://github.com/Matutozi/Burrow/issues
 
@@ -45,6 +45,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | tabs | permissions | Reads the title, address and last-used time of open tabs to calculate each tab's importance score shown in the side panel, and switches to a tab when the user clicks it in the list. |
 | storage | permissions | Saves the user's setup choices (priorities, topics, site lists, scoring settings) so scores reflect their preferences. |
 | sidePanel | permissions | Burrow's whole interface (setup and the scored tab list) is displayed in Chrome's side panel. |
+| idle | permissions | Pauses the "time spent on this tab" counter when the user is away from the keyboard or has locked the screen, so a tab left open overnight isn't scored as heavily used. Only the active/idle/locked state is read. |
 
 ## Privacy & Data Use
 
@@ -59,7 +60,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | Personal communications | No | No | | No |
 | Location | No | No | | No |
 | Web history | Yes (open tabs, processed locally) | No | Calculating tab scores | No |
-| User activity | No (planned: local only) | No | | No |
+| User activity | Yes: tab switch counts and time each tab was in front, held in memory only and cleared when Chrome closes. User can turn it off. | No | Calculating tab scores | No |
 | Website content | No (planned: local only, user-controlled) | No | | No |
 
 ### Data Use Certification
@@ -83,3 +84,4 @@ Support: https://github.com/Matutozi/Burrow/issues
 | Version | Date | Summary |
 |---|---|---|
 | 0.1.0 | 2026-11-20 | Initial MVP: setup wizard, configurable tab scoring, side panel tab list. Not submitted. |
+| 0.2.0 | 2026-11-20 | Activity tracking (visits, time in front, idle-aware, in memory only); hardened data validation; network access blocked by security policy. Not submitted. |

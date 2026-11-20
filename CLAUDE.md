@@ -30,7 +30,8 @@ These rules are non-negotiable. Every change must follow them.
 - Users must always be able to export and delete all their data.
 - Request permissions only when a feature needs them. Prefer `optional_permissions` and
   `optional_host_permissions`. Never ask for `<all_urls>` up front.
-
+- Activity data (visits, time per tab) lives only in `chrome.storage.session` (memory, cleared when
+  Chrome closes, `TRUSTED_CONTEXTS` only) and respects `prefs.trackActivity`.
 - The production CSP sets `connect-src 'none'`, so Chrome itself blocks network access from
   extension pages. CI fails if a network API appears in the build. Never loosen this without an
   explicit, documented decision.
@@ -60,6 +61,7 @@ These rules are non-negotiable. Every change must follow them.
 
 ## Layout
 - `src/background/service-worker.ts`: event wiring only
+- `src/activity/`: pure activity reducer (`tracker.ts`) and the serialised session store (`store.ts`)
 - `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
 - `src/sidepanel/`: Preact UI (setup wizard, tab list) and all user-facing wording (`format.ts`)

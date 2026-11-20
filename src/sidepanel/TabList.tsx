@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
+import { onActivityChanged, readActivity } from '../activity/store';
+import { activityFor, EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { createScorer, type TabScore } from '../scoring/score';
 import { formatReasons } from './format';
@@ -56,6 +58,28 @@ function useTabs(): chrome.tabs.Tab[] {
 }
 
 /** Colour bands derived from the user's threshold: clutter, the lower half of the rest, the upper half. */
+/** Live visit and time counters kept by the service worker. */
+function useActivity(enabled: boolean): ActivityState {
+  const [state, setState] = useState<ActivityState>(EMPTY_ACTIVITY);
+  useEffect(() => {
+    if (!enabled) {
+      setState(EMPTY_ACTIVITY);
+      return;
+    }
+    let changedMeanwhile = false;
+    const unsubscribe = onActivityChanged((next) => {
+      changedMeanwhile = true;
+      setState(next);
+    });
+    readActivity().then(
+      (loaded) => !changedMeanwhile && setState(loaded),
+      (err: unknown) => console.error('Burrow: could not read activity', err),
+    );
+    return unsubscribe;
+  }, [enabled]);
+  return state;
+}
+
 function scoreClass(score: number, threshold: number): string {
   if (score < threshold) return 'low';
   if (score < threshold + (100 - threshold) / 2) return 'mid';
@@ -94,33 +118,34 @@ function Row({ item, prefs }: { item: ScoredTab; prefs: Preferences }) {
 
 export function TabList({ prefs, onEditPreferences }: Props) {
   const tabs = useTabs();
+  const activity = useActivity(prefs.trackActivity);
   const scorer = useMemo(() => createScorer(prefs), [prefs]);
 
   const { candidates, keep, total } = useMemo(() => {
     const now = Date.now();
     const scored: ScoredTab[] = tabs
       .filter((t) => !t.incognito)
-      .map((tab) => ({
-        tab,
-        result: scorer.score(
-          {
-            url: tab.url ?? '',
-            title: tab.title ?? '',
-            lastAccessed: tab.lastAccessed ?? now,
-            pinned: tab.pinned,
-            audible: tab.audible ?? false,
-            active: tab.active,
-          },
-          now,
-        ),
-      }))
+      .map((tab) => {
+        const used = tab.id === undefined ? undefined : activityFor(activity, tab.id, now);
+        const signals = {
+          url: tab.url ?? '',
+          title: tab.title ?? '',
+          lastAccessed: tab.lastAccessed ?? now,
+          pinned: tab.pinned,
+          audible: tab.audible ?? false,
+          active: tab.active,
+          visitCount: used?.visits,
+          activeMs: used?.activeMs,
+        };
+        return { tab, result: scorer.score(signals, now) };
+      })
       .sort((a, b) => a.result.score - b.result.score);
     return {
       candidates: scored.filter((s) => scorer.isArchiveCandidate(s.result)),
       keep: scored.filter((s) => !scorer.isArchiveCandidate(s.result)).reverse(),
       total: scored.length,
     };
-  }, [tabs, scorer]);
+  }, [tabs, scorer, activity]);
 
   return (
     <main class="tablist">

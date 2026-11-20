@@ -28,6 +28,6 @@ export default defineManifest((env) => ({
   action: { default_title: 'Open Burrow' },
   side_panel: { default_path: 'src/sidepanel/index.html' },
   background: { service_worker: 'src/background/service-worker.ts', type: 'module' },
-  permissions: ['tabs', 'storage', 'sidePanel'],
+  permissions: ['tabs', 'storage', 'sidePanel', 'idle'],
   ...(env.mode === 'production' ? { content_security_policy: { extension_pages: CSP_PROD } } : {}),
 }));
