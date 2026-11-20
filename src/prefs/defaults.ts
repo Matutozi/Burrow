@@ -87,5 +87,8 @@ export function defaultPreferences(persona: Persona = 'general'): Preferences {
     idleAfterSeconds: 120,
     // Off until the user opts in and grants page access.
     captureText: false,
+    autoArchiveEveryMinutes: 60,
+    autoArchiveAfterHours: 12,
+    autoArchiveMaxPerRun: 20,
   };
 }

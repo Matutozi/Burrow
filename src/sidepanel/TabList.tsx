@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { onActivityChanged, readActivity } from '../activity/store';
-import { activityFor, EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
-import { captureTexts } from '../archive/capture';
+import { EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
+import { runArchive, undoIfUnchanged } from '../archive/chromeApi';
+import { planArchive, signalsOf } from '../archive/plan';
 import { archiveBlocker } from '../archive/record';
-import { archiveTabs, undoArchive, type ArchiveRequest } from '../archive/store';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
-import { createScorer, type Scorer, type TabScore, type TabSignals } from '../scoring/score';
-import { closeTabs, hasCaptureAccess, pageOpener, readPageText, type TabPlace } from './chromeTabs';
+import { createScorer, type TabScore } from '../scoring/score';
+import { AutoArchiveBanner } from './AutoArchiveBanner';
 import { ARCHIVE_TEXT, formatArchiveResult, formatReasons } from './format';
 import type { Notify } from './Toast';
 
@@ -104,20 +104,6 @@ async function focusTab(tab: chrome.tabs.Tab) {
   }
 }
 
-function signalsOf(tab: chrome.tabs.Tab, activity: ActivityState, now: number): TabSignals {
-  const used = tab.id === undefined ? undefined : activityFor(activity, tab.id, now);
-  return {
-    url: tab.url ?? '',
-    title: tab.title ?? '',
-    lastAccessed: tab.lastAccessed ?? now,
-    pinned: tab.pinned,
-    audible: tab.audible ?? false,
-    active: tab.active,
-    visitCount: used?.visits,
-    activeMs: used?.activeMs,
-  };
-}
-
 interface RowProps {
   item: ScoredTab;
   prefs: Preferences;
@@ -159,37 +145,9 @@ function Row({ item, prefs, onArchive, busy }: RowProps) {
  * Re-reads the tabs right before archiving, so a tab that changed page, became active, or started
  * playing audio since the list was drawn is never closed by mistake.
  */
-async function freshCandidates(ids: number[], scorer: Scorer, activity: ActivityState, prefs: Preferences) {
-  const now = Date.now();
+async function freshTabs(ids: number[]): Promise<chrome.tabs.Tab[]> {
   const tabs = await Promise.all(ids.map((id) => chrome.tabs.get(id).catch(() => null)));
-  const requests: ArchiveRequest[] = [];
-  const places = new Map<string, TabPlace>();
-  // Sleeping (discarded) tabs have no page loaded, so there is nothing to read from them.
-  const readable: number[] = [];
-  for (const tab of tabs) {
-    if (!tab || tab.id === undefined || tab.incognito) continue;
-    const result = scorer.score(signalsOf(tab, activity, now), now);
-    if (!scorer.isArchiveCandidate(result)) continue;
-    const url = tab.url ?? '';
-    requests.push({
-      tabId: tab.id,
-      input: { url, title: tab.title ?? '', contentType: result.contentType, score: result.score },
-      policy: prefs.indexPolicy[result.contentType],
-    });
-    places.set(url, { windowId: tab.windowId, index: tab.index });
-    if (prefs.indexPolicy[result.contentType] === 'full' && !tab.discarded && archiveBlocker(url, 'full') === null) {
-      readable.push(tab.id);
-    }
-  }
-
-  if (prefs.captureText && readable.length > 0 && (await hasCaptureAccess())) {
-    const texts = await captureTexts(readable, readPageText);
-    for (const req of requests) {
-      const text = texts.get(req.tabId);
-      if (text) req.input.text = text;
-    }
-  }
-  return { requests, places };
+  return tabs.filter((t): t is chrome.tabs.Tab => t !== null);
 }
 
 export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpenArchive }: Props) {
@@ -203,8 +161,8 @@ export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpen
     setBusy(true);
     try {
       const ids = items.flatMap((i) => (i.tab.id === undefined ? [] : [i.tab.id]));
-      const { requests, places } = await freshCandidates(ids, scorer, activity, prefs);
-      const result = await archiveTabs(requests, { closeTabs, now: Date.now() });
+      const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, now: Date.now() });
+      const result = await runArchive(plan, prefs);
       const count = (reason: string) => result.skipped.filter((s) => s.reason === reason).length;
       const archived = result.archivedTabIds.length;
       notify({
@@ -213,7 +171,7 @@ export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpen
           archived > 0
             ? async () => {
                 try {
-                  await undoArchive(result.undo, pageOpener(places));
+                  await undoIfUnchanged(result.undo, plan.places);
                   notify({ text: ARCHIVE_TEXT.undone });
                 } catch (err) {
                   console.error('Burrow: undo failed', err);
@@ -256,6 +214,8 @@ export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpen
           </button>
         </div>
       </header>
+
+      <AutoArchiveBanner notify={notify} />
 
       <p class="summary">
         {total} open tab{total === 1 ? '' : 's'} · <strong>{candidates.length}</strong> look like clutter

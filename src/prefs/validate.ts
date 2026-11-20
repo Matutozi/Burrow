@@ -22,6 +22,9 @@ export const LIMITS = {
   archiveThreshold: { min: 0, max: 100 },
   /** chrome.idle rejects intervals under 15 seconds. */
   idleAfterSeconds: { min: 15, max: 3600 },
+  autoArchiveEveryMinutes: { min: 15, max: 1440 },
+  autoArchiveAfterHours: { min: 1, max: 720 },
+  autoArchiveMaxPerRun: { min: 1, max: 200 },
   maxTopics: 100,
   maxTopicLength: 60,
   maxDomains: 500,
@@ -112,6 +115,9 @@ function migrate(raw: Raw): Raw {
   const version = typeof out.version === 'number' ? out.version : 1;
   // v1 -> v2: added captureText. Existing users never granted page access, so it starts off.
   if (version < 2) out = { ...out, captureText: false };
+  // v2 -> v3: automatic archiving became real. Before, "auto" did nothing, so nobody has agreed to
+  // tabs closing on their own yet. Start everyone on "ask first"; they can switch it on again.
+  if (version < 3) out = { ...out, mode: 'suggest' };
   return out;
 }
 
@@ -140,5 +146,14 @@ export function sanitizePreferences(input: unknown): Preferences {
     trackActivity: bool(raw.trackActivity, base.trackActivity),
     idleAfterSeconds: Math.round(clampNumber(raw.idleAfterSeconds, LIMITS.idleAfterSeconds, base.idleAfterSeconds)),
     captureText: bool(raw.captureText, base.captureText),
+    autoArchiveEveryMinutes: Math.round(
+      clampNumber(raw.autoArchiveEveryMinutes, LIMITS.autoArchiveEveryMinutes, base.autoArchiveEveryMinutes),
+    ),
+    autoArchiveAfterHours: Math.round(
+      clampNumber(raw.autoArchiveAfterHours, LIMITS.autoArchiveAfterHours, base.autoArchiveAfterHours),
+    ),
+    autoArchiveMaxPerRun: Math.round(
+      clampNumber(raw.autoArchiveMaxPerRun, LIMITS.autoArchiveMaxPerRun, base.autoArchiveMaxPerRun),
+    ),
   };
 }

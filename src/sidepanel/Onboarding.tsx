@@ -11,8 +11,9 @@ import {
   type ScoringWeights,
 } from '../prefs/types';
 import { cleanDomain, LIMITS } from '../prefs/validate';
-import { hasCaptureAccess, releaseCaptureAccess, requestCaptureAccess } from './chromeTabs';
-import { ARCHIVE_TEXT } from './format';
+import { hasCaptureAccess } from '../archive/chromeApi';
+import { hasAlarmAccess, releaseCaptureAccess, requestAlarmAccess, requestCaptureAccess } from './chromeTabs';
+import { ARCHIVE_TEXT, AUTO_TEXT } from './format';
 
 interface Props {
   initial: Preferences;
@@ -33,6 +34,12 @@ const WEIGHT_FIELDS: { key: keyof ScoringWeights; label: string; min: number }[]
   { key: 'topicPoints', label: 'Points for matching one of your topics', min: 0 },
   { key: 'lowPrioritySitePoints', label: 'Points against low-priority sites', min: 0 },
 ];
+
+const AUTO_FIELDS = [
+  { key: 'autoArchiveEveryMinutes', label: 'Check every (minutes)', limits: LIMITS.autoArchiveEveryMinutes },
+  { key: 'autoArchiveAfterHours', label: 'Only tabs untouched for (hours)', limits: LIMITS.autoArchiveAfterHours },
+  { key: 'autoArchiveMaxPerRun', label: 'At most this many tabs per check', limits: LIMITS.autoArchiveMaxPerRun },
+] as const satisfies readonly { key: keyof Preferences; label: string; limits: { min: number; max: number } }[];
 
 function splitList(text: string): string[] {
   return text
@@ -101,10 +108,33 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
   /** Whether Chrome currently grants page access. Null until checked. */
   const [captureAccess, setCaptureAccess] = useState<boolean | null>(null);
   const [captureDenied, setCaptureDenied] = useState(false);
+  const [alarmAccess, setAlarmAccess] = useState<boolean | null>(null);
+  const [autoDenied, setAutoDenied] = useState(false);
 
   useEffect(() => {
     void hasCaptureAccess().then(setCaptureAccess);
+    void hasAlarmAccess().then(setAlarmAccess);
   }, []);
+
+  const chooseMode = (mode: Preferences['mode']) => {
+    setAutoDenied(false);
+    if (mode === 'suggest') {
+      update({ mode });
+      return;
+    }
+    // Scheduling needs the alarms permission. Chrome grants it without a prompt, but only during a click.
+    requestAlarmAccess().then(
+      (granted) => {
+        setAlarmAccess(granted);
+        setAutoDenied(!granted);
+        if (granted) update({ mode });
+      },
+      (err: unknown) => {
+        console.error('Burrow: alarms permission request failed', err);
+        setAutoDenied(true);
+      },
+    );
+  };
 
   const important = parseDomains(importantText);
   const low = parseDomains(lowText);
@@ -342,13 +372,33 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
                 { value: 'suggest', label: 'Ask me first' },
                 { value: 'auto', label: 'Archive automatically' },
               ]}
-              onChange={(mode) => update({ mode })}
+              onChange={chooseMode}
             />
             <small class="muted">Archived tabs are saved, never deleted, and you can restore them anytime.</small>
-            {prefs.mode === 'auto' && (
-              <small class="muted">Automatic archiving is coming in a later version. Until then Burrow asks first.</small>
-            )}
+            {autoDenied && <p class="error-text">{AUTO_TEXT.denied}</p>}
+            {prefs.mode === 'auto' && alarmAccess === false && !autoDenied && <p class="error-text">{AUTO_TEXT.missing}</p>}
           </fieldset>
+          {prefs.mode === 'auto' && (
+            <fieldset class="field">
+              <legend>Automatic archiving</legend>
+              {AUTO_FIELDS.map(({ key, label, limits }) => (
+                <label class="field inline">
+                  {label}
+                  <input
+                    type="number"
+                    min={limits.min}
+                    max={limits.max}
+                    value={prefs[key]}
+                    onChange={(e) => {
+                      const n = Math.round(Number(e.currentTarget.value));
+                      update({ [key]: Number.isFinite(n) ? Math.min(limits.max, Math.max(limits.min, n)) : prefs[key] });
+                    }}
+                  />
+                </label>
+              ))}
+              <small class="muted">{AUTO_TEXT.safety}</small>
+            </fieldset>
+          )}
           <label class="check">
             <input type="checkbox" checked={prefs.trackActivity} onChange={(e) => update({ trackActivity: e.currentTarget.checked })} />
             Use how often and how long I use each tab to score it

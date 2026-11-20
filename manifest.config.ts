@@ -29,8 +29,9 @@ export default defineManifest((env) => ({
   side_panel: { default_path: 'src/sidepanel/index.html' },
   background: { service_worker: 'src/background/service-worker.ts', type: 'module' },
   permissions: ['tabs', 'storage', 'sidePanel', 'idle'],
-  // Asked for only when the user turns on "save page text", and removable at any time.
-  optional_permissions: ['scripting'],
+  // Optional ones are asked for only when the user turns on the feature that needs them.
+  // scripting: only for "save page text". alarms: only for automatic archiving.
+  optional_permissions: ['scripting', 'alarms'],
   optional_host_permissions: ['https://*/*', 'http://*/*'],
   ...(env.mode === 'production' ? { content_security_policy: { extension_pages: CSP_PROD } } : {}),
 }));

@@ -4,7 +4,8 @@ import { createArchiveSearch, textSnippet, type ArchiveRecord } from '../archive
 import { listArchive, onArchiveChanged, putRecords, removeRecords, restoreRecords } from '../archive/store';
 import { hostOf } from '../prefs/classify';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
-import { downloadJson, pageOpener } from './chromeTabs';
+import { pageOpener } from '../archive/chromeApi';
+import { downloadJson } from './chromeTabs';
 import { ARCHIVE_TEXT, formatDate } from './format';
 import type { Notify } from './Toast';
 
@@ -82,7 +83,7 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
 
   async function restore(record: ArchiveRecord) {
     try {
-      await restoreRecords([record], pageOpener(new Map(), true));
+      await restoreRecords([record], pageOpener({}, true));
       notify({ text: ARCHIVE_TEXT.restored(1) });
     } catch (err) {
       console.error('Burrow: restore failed', err);

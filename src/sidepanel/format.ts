@@ -95,3 +95,15 @@ export const ARCHIVE_TEXT = {
 export function formatDate(epochMs: number): string {
   return new Date(epochMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+export const AUTO_TEXT = {
+  denied: 'Chrome did not allow scheduling, so Burrow will keep asking first.',
+  missing: 'Scheduling permission was removed in Chrome settings. Choose "Archive automatically" again to restore it.',
+  safety:
+    'Burrow never automatically archives pinned, audible or open-in-front tabs, sensitive pages, or the last tab in a window. Every automatic cleanup can be undone from the tab list.',
+  banner: (n: number, since: number) =>
+    `Burrow archived ${plural(n, 'tab')} automatically since ${new Date(since).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`,
+  undone: (n: number) => (n > 0 ? `Reopened ${plural(n, 'tab')}` : 'Those pages were already reopened or deleted.'),
+  undoFailed: 'Could not reopen the tabs. They are still in your archive.',
+  dismiss: 'Dismiss',
+};

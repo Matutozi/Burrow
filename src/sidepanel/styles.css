@@ -144,3 +144,8 @@ input[type='search'] {
 .toast.error-toast { background: var(--low); color: #fff; }
 .toast.error-toast .link { color: #fff; }
 .snippet { color: var(--muted); font-size: 11px; font-style: italic; overflow-wrap: anywhere; }
+.banner {
+  display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 10px;
+  border: 1px solid var(--accent); border-radius: var(--radius); background: var(--surface); font-size: 12px;
+}
+.banner span { flex: 1; }

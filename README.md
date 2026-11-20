@@ -3,7 +3,8 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: early MVP (step 4 of 7). Setup, scoring, activity tracking, archiving and page-text search work.
+> Status: early MVP (step 5 of 7). Setup, scoring, activity tracking, archiving, page-text search and automatic
+> archiving work.
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -24,6 +25,11 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   a snippet around each match. It reads a page only at the moment you archive it, skips pages with a
   password box, and falls back to the title if a page can't be read in 3 seconds or storage is full.
   Turning it off gives the permission back to Chrome.
+- **Automatic archiving (opt-in):** choose **Archive automatically** under **Preferences → Cleanup**.
+  Every hour (configurable) Burrow archives clutter that has been untouched for at least 12 hours,
+  at most 20 tabs per check. It never touches pinned, audible or open-in-front tabs, sensitive pages,
+  browser pages, or the last tab in a window. A banner in the tab list shows what it archived, with
+  one-click **Undo**.
 - **Your data, your file:** export everything Burrow keeps as JSON, or delete the whole archive (with undo).
 - **Private by design:** no servers, no network requests (blocked by the extension's security
   policy), no analytics. Preferences sync only through your own Chrome profile. Archived pages
@@ -67,6 +73,7 @@ npm run build      # production build into dist/
 | `storage` | Save your preferences in your Chrome profile and archived pages on this device. |
 | `sidePanel` | Show Burrow in Chrome's side panel. |
 | `idle` | Pause time counting when you step away or lock your screen, so scores reflect real use. |
+| `alarms` (**optional**) | Only if you choose automatic archiving: run the cleanup on a schedule. Granted without a prompt. |
 | `scripting` + access to `http`/`https` sites (**optional**) | Only if you turn on page-text saving: read the text of a page at the moment you archive it. Not requested at install. |
 
 See [PRIVACY.md](PRIVACY.md) for the full privacy policy and [CLAUDE.md](CLAUDE.md) for

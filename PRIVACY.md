@@ -1,6 +1,6 @@
 # Burrow Privacy Policy
 
-_Last updated: 2026-11-20 (v0.4.0)_
+_Last updated: 2026-11-20 (v0.5.0)_
 
 Burrow is built so that your data never leaves your control.
 
@@ -12,6 +12,7 @@ Burrow is built so that your data never leaves your control.
 | Open tab titles, addresses and last-used times | Read on demand to calculate scores. Not stored. | No |
 | Archived pages: title, address, page type, score and the date you archived it | This device only (`chrome.storage.local`). Never synced. | No |
 | Page text of archived pages (only if you turn on page-text saving, and only for page types set to "Full text"): up to 8,000 characters of the page's readable text | This device only (`chrome.storage.local`), inside the archived page's record. Never synced. | No |
+| The last automatic cleanup (copies of the archived pages' records and their tab positions), kept so you can undo it | This device only (`chrome.storage.local`). Removed when you undo or dismiss it. | No |
 | How many times you switched to each open tab, and how long it was in front | In memory only (`chrome.storage.session`). Never written to disk, never readable by websites, deleted when Chrome closes or the tab is closed. You can switch this off in setup. | No |
 
 Archiving follows the "What to save" choices you made in setup. Pages set to "never save"

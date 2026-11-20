@@ -1,9 +1,15 @@
 // Burrow service worker: event wiring only. It keeps no state in memory (Chrome stops idle
 // workers at any time) and makes no network requests.
-import { createActivityStore } from '../activity/store';
-import { focusTab, pruneTabs, removeTab, replaceTab } from '../activity/tracker';
+import { createActivityStore, readActivity } from '../activity/store';
+import { EMPTY_ACTIVITY, focusTab, pruneTabs, removeTab, replaceTab } from '../activity/tracker';
+import { recordAutoRun } from '../archive/autoRun';
+import { runArchive } from '../archive/chromeApi';
+import { planArchive } from '../archive/plan';
 import { loadPreferences, onPreferencesChanged } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
+import { createScorer } from '../scoring/score';
+
+const AUTO_ARCHIVE_ALARM = 'burrow-auto-archive';
 
 const activity = createActivityStore();
 
@@ -29,8 +35,58 @@ async function refreshFocus(): Promise<void> {
   });
 }
 
+/** The alarms API exists only once the user has allowed it (by choosing automatic mode). */
+function alarmsAvailable(): boolean {
+  return typeof chrome.alarms !== 'undefined';
+}
+
+/** Schedules or cancels automatic archiving to match the preferences. Leaves a matching schedule alone. */
+async function syncAutoArchiveAlarm(prefs: Preferences): Promise<void> {
+  if (!alarmsAvailable()) return;
+  if (prefs.mode !== 'auto') {
+    await chrome.alarms.clear(AUTO_ARCHIVE_ALARM);
+    return;
+  }
+  const existing = await chrome.alarms.get(AUTO_ARCHIVE_ALARM);
+  if (existing?.periodInMinutes === prefs.autoArchiveEveryMinutes) return;
+  await chrome.alarms.create(AUTO_ARCHIVE_ALARM, {
+    delayInMinutes: prefs.autoArchiveEveryMinutes,
+    periodInMinutes: prefs.autoArchiveEveryMinutes,
+  });
+}
+
+/** One automatic cleanup. Everything is re-read from storage and Chrome, since the worker keeps no state. */
+async function autoArchive(): Promise<void> {
+  const prefs = await loadPreferences();
+  if (prefs.mode !== 'auto') return;
+  const now = Date.now();
+  const [tabs, activity] = await Promise.all([
+    chrome.tabs.query({}),
+    prefs.trackActivity ? readActivity() : Promise.resolve(EMPTY_ACTIVITY),
+  ]);
+  const plan = planArchive(tabs, { scorer: createScorer(prefs), prefs, activity, now, auto: true });
+  if (plan.requests.length === 0) return;
+  const result = await runArchive(plan, prefs);
+  if (result.undo.saved.length === 0) return;
+  await recordAutoRun(
+    { since: now, tabCount: result.archivedTabIds.length, undo: result.undo, places: plan.places },
+    chrome.storage.local,
+  );
+}
+
+// Only tracks whether this worker instance registered its listener; it's not user state.
+let alarmListenerAdded = false;
+function listenForAlarms(): void {
+  if (alarmListenerAdded || !alarmsAvailable()) return;
+  alarmListenerAdded = true;
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === AUTO_ARCHIVE_ALARM) void autoArchive().catch(logError('automatic archiving failed'));
+  });
+}
+
 async function applySettings(prefs: Preferences): Promise<void> {
   chrome.idle.setDetectionInterval(prefs.idleAfterSeconds);
+  await syncAutoArchiveAlarm(prefs).catch(logError('could not schedule automatic archiving'));
   if (!prefs.trackActivity) {
     await activity.clear();
     return;
@@ -47,6 +103,15 @@ async function init(): Promise<void> {
 }
 
 // Listeners must be registered synchronously at the top level so Chrome can wake the worker for them.
+listenForAlarms();
+chrome.permissions.onAdded.addListener((perms) => {
+  if (!perms.permissions?.includes('alarms')) return;
+  // Granted while this worker is running: start listening now and schedule right away.
+  listenForAlarms();
+  void loadPreferences()
+    .then(syncAutoArchiveAlarm)
+    .catch(logError('could not schedule automatic archiving'));
+});
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(logError('could not set side panel behavior'));
 
 chrome.runtime.onInstalled.addListener(() => void init().catch(logError('init failed')));

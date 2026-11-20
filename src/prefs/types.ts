@@ -65,7 +65,7 @@ export interface SiteRule {
 }
 
 /** Current schema version. Bump it and add a migration in validate.ts when the shape changes. */
-export const PREFERENCES_VERSION = 2;
+export const PREFERENCES_VERSION = 3;
 
 export interface Preferences {
   version: typeof PREFERENCES_VERSION;
@@ -100,4 +100,10 @@ export interface Preferences {
    * optional `scripting` and host permissions, which the user grants when turning this on. (v2)
    */
   captureText: boolean;
+  /** Automatic mode: minutes between checks. (v3) */
+  autoArchiveEveryMinutes: number;
+  /** Automatic mode: only tabs untouched for at least this many hours are archived. (v3) */
+  autoArchiveAfterHours: number;
+  /** Automatic mode: most tabs archived in one check, so a bad setting can't close everything at once. (v3) */
+  autoArchiveMaxPerRun: number;
 }

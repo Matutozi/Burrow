@@ -133,6 +133,17 @@ export async function archiveTabs(requests: ArchiveRequest[], deps: ArchiveDeps)
 }
 
 /**
+ * Narrows an undo to what is still true. A page the user has since reopened or deleted, or that was
+ * archived again later, is left alone, so undo can't duplicate tabs or bring back deleted data.
+ */
+export function reconcileUndo(undo: ArchiveUndo, current: ArchiveRecord[]): ArchiveUndo {
+  const now = new Map(current.map((r) => [r.id, r.archivedAt]));
+  const saved = undo.saved.filter((r) => now.get(r.id) === r.archivedAt);
+  const ids = new Set(saved.map((r) => r.id));
+  return { saved, previous: undo.previous.filter((r) => ids.has(r.id)) };
+}
+
+/**
  * Reverses an archive: reopens the pages first, then puts the records back as they were. If
  * reopening fails, this throws and the records are left untouched, so nothing is lost.
  */

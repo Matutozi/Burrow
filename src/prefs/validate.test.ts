@@ -73,11 +73,25 @@ describe('sanitizePreferences', () => {
 });
 
 describe('migration', () => {
-  it('upgrades v1 data to v2 with page-text capture off', () => {
+  it('upgrades v1 data with page-text capture off', () => {
     const p = sanitizePreferences({ version: 1, topics: ['kept'], captureText: true });
-    expect(p.version).toBe(2);
+    expect(p.version).toBe(3);
     expect(p.captureText).toBe(false);
     expect(p.topics).toEqual(['kept']);
+  });
+
+  it('upgrades v2 data to v3 with automatic archiving off until the user turns it on again', () => {
+    const p = sanitizePreferences({ version: 2, mode: 'auto', captureText: true });
+    expect(p.version).toBe(3);
+    expect(p.mode).toBe('suggest');
+    expect(p.captureText).toBe(true);
+    expect(p.autoArchiveMaxPerRun).toBe(20);
+    expect(sanitizePreferences({ version: 3, mode: 'auto' }).mode).toBe('auto');
+  });
+
+  it('clamps automatic archiving limits', () => {
+    const p = sanitizePreferences({ version: 3, autoArchiveEveryMinutes: 1, autoArchiveAfterHours: 1e9, autoArchiveMaxPerRun: 'x' });
+    expect([p.autoArchiveEveryMinutes, p.autoArchiveAfterHours, p.autoArchiveMaxPerRun]).toEqual([15, 720, 20]);
   });
 
   it('keeps captureText for v2 data', () => {
