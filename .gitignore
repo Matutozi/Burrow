@@ -5,3 +5,4 @@ dist/
 *.pem
 .env
 .DS_Store
+release/

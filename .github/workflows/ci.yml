@@ -18,9 +18,15 @@ jobs:
       - run: npm audit --audit-level=high --omit=dev
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
+      # Builds, then packs the store zip. Fails on network APIs, remote code, source maps or a version mismatch.
+      - run: npm run package
       - name: Fail if the build contains network calls
         run: |
           if grep -rEl "fetch\(|XMLHttpRequest|WebSocket\(|sendBeacon" dist/assets; then
             echo "Network API found in build output"; exit 1
           fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: burrow-extension
+          path: release/*.zip
+          if-no-files-found: error

@@ -104,6 +104,7 @@ export const OMNIBOX_TEXT = {
 
 export const DATA_TEXT = {
   importButton: 'Import from file',
+  privacyPolicy: 'Privacy policy',
   deleteEverything: 'Delete all Burrow data',
   confirmDeleteEverything:
     'Delete all Burrow data on this device and in Chrome sync: preferences, archived pages and activity? You can undo this right after.',

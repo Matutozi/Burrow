@@ -68,4 +68,6 @@ These rules are non-negotiable. Every change must follow them.
   (`omnibox.ts`), export, import (`importData.ts`) and delete-all with undo (`allData.ts`)
 - `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
+- `scripts/`: dependency-free icon drawing (`icons.mjs`) and store packaging with pre-flight checks (`package.mjs`)
+- `public/icons/`: generated icons, committed
 - `src/sidepanel/`: Preact UI (setup wizard, tab list, archive) and all user-facing wording (`format.ts`)

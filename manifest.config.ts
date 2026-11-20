@@ -17,6 +17,14 @@ const CSP_PROD = [
   "form-action 'none'",
 ].join('; ');
 
+/** Drawn by scripts/icons.mjs into public/icons (npm run icons). */
+const ICONS = {
+  16: 'icons/icon-16.png',
+  32: 'icons/icon-32.png',
+  48: 'icons/icon-48.png',
+  128: 'icons/icon-128.png',
+};
+
 export default defineManifest((env) => ({
   manifest_version: 3,
   name: 'Burrow',
@@ -25,7 +33,9 @@ export default defineManifest((env) => ({
   minimum_chrome_version: '121',
   // Burrow never runs in, reads, or stores anything from incognito windows.
   incognito: 'not_allowed',
-  action: { default_title: 'Open Burrow' },
+  homepage_url: 'https://github.com/Matutozi/Burrow',
+  icons: ICONS,
+  action: { default_title: 'Open Burrow', default_icon: ICONS },
   // Type "burrow" then a space in the address bar to search archived pages. Needs no permission.
   omnibox: { keyword: 'burrow' },
   side_panel: { default_path: 'src/sidepanel/index.html' },

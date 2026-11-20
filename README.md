@@ -3,8 +3,8 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: early MVP (step 6 of 7). Setup, scoring, activity tracking, archiving, page-text search, automatic
-> archiving, address-bar search and full data controls work.
+> Status: 1.0.0, ready for Chrome Web Store submission. See the checklist in
+> [CHROMEWEBSTORE.md](CHROMEWEBSTORE.md#submission-checklist).
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -64,6 +64,15 @@ npm test           # unit tests
 npm run typecheck
 npm run build      # production build into dist/
 ```
+
+## Release
+```bash
+npm run icons      # redraw public/icons from scripts/icons.mjs (only after changing the design)
+npm run package    # production build + release/burrow-<version>.zip for the Chrome Web Store
+```
+`npm run package` refuses to pack a build with network APIs, remote code, source maps, a dev CSP or
+a version that doesn't match `package.json`. CI runs it on every push and keeps the zip as a build
+artifact.
 
 ## Load in Chrome
 1. Run `npm run build` (or `npm run dev`).

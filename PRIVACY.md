@@ -1,6 +1,6 @@
 # Burrow Privacy Policy
 
-_Last updated: 2026-11-20 (v0.6.0)_
+_Last updated: 2026-11-20 (v1.0.0)_
 
 Burrow is built so that your data never leaves your control.
 

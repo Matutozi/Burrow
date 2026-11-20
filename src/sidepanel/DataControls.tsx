@@ -9,6 +9,9 @@ import { downloadJson } from './chromeTabs';
 import { ARCHIVE_TEXT, DATA_TEXT } from './format';
 import type { Notify } from './Toast';
 
+/** Opens in a normal browser tab. A link, not a request: Burrow's own pages still make no network calls. */
+const PRIVACY_URL = 'https://github.com/Matutozi/Burrow/blob/main/PRIVACY.md';
+
 function dataAreas(): DataAreas {
   return { prefs: chromeAreas(), local: chrome.storage.local, session: chrome.storage.session };
 }
@@ -145,6 +148,11 @@ export function DataControls({ prefs, records, notify, onDeleteRecords }: Props)
           {DATA_TEXT.deleteEverything}
         </button>
       </div>
+      <p class="muted">
+        <a href={PRIVACY_URL} target="_blank" rel="noreferrer">
+          {DATA_TEXT.privacyPolicy}
+        </a>
+      </p>
     </section>
   );
 }
