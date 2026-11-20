@@ -53,7 +53,7 @@ These rules are non-negotiable. Every change must follow them.
 
 ## 6. Code standards
 - The service worker holds no state in memory. Chrome stops idle workers, so persist state in storage.
-- Pure, unit-tested logic lives in `src/prefs` and `src/scoring`. The UI stays thin.
+- Pure, unit-tested logic lives in `src/prefs`, `src/scoring`, `src/activity` and `src/archive`. The UI stays thin.
 - async/await everywhere, and handle every rejected promise.
 - Strict TypeScript. No `any`.
 - Run `npm run check` (typecheck + tests + build) before every commit. CI runs the same.
@@ -62,6 +62,7 @@ These rules are non-negotiable. Every change must follow them.
 ## Layout
 - `src/background/service-worker.ts`: event wiring only
 - `src/activity/`: pure activity reducer (`tracker.ts`) and the serialised session store (`store.ts`)
+- `src/archive/`: pure record logic (`record.ts`), save-then-close archive store with undo (`store.ts`), data export
 - `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
-- `src/sidepanel/`: Preact UI (setup wizard, tab list) and all user-facing wording (`format.ts`)
+- `src/sidepanel/`: Preact UI (setup wizard, tab list, archive) and all user-facing wording (`format.ts`)

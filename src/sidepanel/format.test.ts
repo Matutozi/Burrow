@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAge, formatReasons } from './format';
+import { formatAge, formatArchiveResult, formatReasons } from './format';
 
 describe('formatAge', () => {
   it.each([
@@ -24,5 +24,13 @@ describe('formatReasons', () => {
         { code: 'pinned', points: 0 },
       ]),
     ).toBe('last opened 3 days ago (+9) · social media: low priority (-20) · matches "react" (+15) · pinned');
+  });
+
+  it('summarises an archive run', () => {
+    expect(formatArchiveResult(1, 0, 0, 0)).toBe('Archived 1 tab');
+    expect(formatArchiveResult(3, 1, 2, 0)).toBe(
+      'Archived 3 tabs · 1 tab couldn\'t be closed but is saved · 2 sensitive tabs left open (set to "never save")',
+    );
+    expect(formatArchiveResult(0, 0, 0, 0)).toBe('Nothing to archive');
   });
 });

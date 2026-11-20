@@ -301,6 +301,9 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
               onChange={(mode) => update({ mode })}
             />
             <small class="muted">Archived tabs are saved, never deleted, and you can restore them anytime.</small>
+            {prefs.mode === 'auto' && (
+              <small class="muted">Automatic archiving is coming in a later version. Until then Burrow asks first.</small>
+            )}
           </fieldset>
           <label class="check">
             <input type="checkbox" checked={prefs.trackActivity} onChange={(e) => update({ trackActivity: e.currentTarget.checked })} />

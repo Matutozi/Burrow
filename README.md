@@ -3,7 +3,8 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: early MVP (step 2 of 7). Setup, scoring and activity tracking work. Archiving and search are next.
+> Status: early MVP (step 3 of 7). Setup, scoring, activity tracking and archiving work. Page-text capture and
+> full-text search are next.
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -14,9 +15,14 @@ told it matters. Clutter can then be archived instead of closed, and everything 
 - **Fully configurable:** every scoring weight can be tuned, and your own site rules
   override the built-in lists.
 - **Activity-aware:** visits and real time spent on each tab feed the score.
+- **Archive instead of close:** archive one clutter tab or all of them. Burrow saves the page's title and
+  address first and closes the tab only once that is stored. Every archive can be undone, and archived pages
+  can be searched, reopened or deleted from the **Archive** view. Pages whose type is set to "never save"
+  (email, banking and health by default) are never archived, so they stay open.
+- **Your data, your file:** export everything Burrow keeps as JSON, or delete the whole archive (with undo).
 - **Private by design:** no servers, no network requests (blocked by the extension's security
-  policy), no analytics. Preferences sync only through your own Chrome profile. Activity stays
-  in memory and is cleared when Chrome closes.
+  policy), no analytics. Preferences sync only through your own Chrome profile. Archived pages
+  stay on this device. Activity stays in memory and is cleared when Chrome closes.
 
 ## How scoring works
 ```
@@ -53,7 +59,7 @@ npm run build      # production build into dist/
 | Permission | Why |
 |---|---|
 | `tabs` | Read tab titles, addresses and last-used times to score them, and switch to a tab when you click it. |
-| `storage` | Save your preferences in your Chrome profile. |
+| `storage` | Save your preferences in your Chrome profile and archived pages on this device. |
 | `sidePanel` | Show Burrow in Chrome's side panel. |
 | `idle` | Pause time counting when you step away or lock your screen, so scores reflect real use. |
 

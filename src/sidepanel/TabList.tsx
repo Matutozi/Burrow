@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { onActivityChanged, readActivity } from '../activity/store';
 import { activityFor, EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
+import { archiveBlocker } from '../archive/record';
+import { archiveTabs, undoArchive, type ArchiveRequest } from '../archive/store';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
-import { createScorer, type TabScore } from '../scoring/score';
-import { formatReasons } from './format';
+import { createScorer, type Scorer, type TabScore, type TabSignals } from '../scoring/score';
+import { closeTabs, pageOpener, type TabPlace } from './chromeTabs';
+import { ARCHIVE_TEXT, formatArchiveResult, formatReasons } from './format';
+import type { Notify } from './Toast';
 
 interface Props {
   prefs: Preferences;
+  archiveCount: number;
+  notify: Notify;
   onEditPreferences: () => void;
+  onOpenArchive: () => void;
 }
 
 interface ScoredTab {
@@ -57,7 +64,6 @@ function useTabs(): chrome.tabs.Tab[] {
   return tabs;
 }
 
-/** Colour bands derived from the user's threshold: clutter, the lower half of the rest, the upper half. */
 /** Live visit and time counters kept by the service worker. */
 function useActivity(enabled: boolean): ActivityState {
   const [state, setState] = useState<ActivityState>(EMPTY_ACTIVITY);
@@ -80,6 +86,7 @@ function useActivity(enabled: boolean): ActivityState {
   return state;
 }
 
+/** Colour bands derived from the user's threshold: clutter, the lower half of the rest, the upper half. */
 function scoreClass(score: number, threshold: number): string {
   if (score < threshold) return 'low';
   if (score < threshold + (100 - threshold) / 2) return 'mid';
@@ -96,10 +103,35 @@ async function focusTab(tab: chrome.tabs.Tab) {
   }
 }
 
-function Row({ item, prefs }: { item: ScoredTab; prefs: Preferences }) {
+function signalsOf(tab: chrome.tabs.Tab, activity: ActivityState, now: number): TabSignals {
+  const used = tab.id === undefined ? undefined : activityFor(activity, tab.id, now);
+  return {
+    url: tab.url ?? '',
+    title: tab.title ?? '',
+    lastAccessed: tab.lastAccessed ?? now,
+    pinned: tab.pinned,
+    audible: tab.audible ?? false,
+    active: tab.active,
+    visitCount: used?.visits,
+    activeMs: used?.activeMs,
+  };
+}
+
+interface RowProps {
+  item: ScoredTab;
+  prefs: Preferences;
+  /** Set for clutter rows that can be archived. */
+  onArchive?: () => void;
+  busy: boolean;
+}
+
+function Row({ item, prefs, onArchive, busy }: RowProps) {
   const { tab, result } = item;
+  const candidate = onArchive !== undefined;
+  const blocker = candidate ? archiveBlocker(tab.url ?? '', prefs.indexPolicy[result.contentType]) : null;
+  const sensitive = blocker === 'sensitive';
   return (
-    <li>
+    <li class="row">
       <button type="button" class="tab" onClick={() => focusTab(tab)} title={tab.url}>
         <span class={`score ${scoreClass(result.score, prefs.archiveThreshold)}`} aria-label={`Score ${result.score}`}>
           {result.score}
@@ -108,37 +140,87 @@ function Row({ item, prefs }: { item: ScoredTab; prefs: Preferences }) {
           <span class="title">{tab.title || tab.url}</span>
           <span class="reason">
             <span class="type">{CONTENT_TYPE_LABELS[result.contentType]}</span>
-            {result.protected && <span class="type">protected</span>} {formatReasons(result.reasons)}
+            {result.protected && <span class="type">protected</span>}
+            {sensitive && <span class="type">{ARCHIVE_TEXT.sensitive}</span>} {formatReasons(result.reasons)}
           </span>
         </span>
       </button>
+      {candidate && blocker === null && (
+        <button type="button" class="link" disabled={busy} onClick={onArchive} aria-label={`Archive ${tab.title || tab.url}`}>
+          {ARCHIVE_TEXT.archive}
+        </button>
+      )}
     </li>
   );
 }
 
-export function TabList({ prefs, onEditPreferences }: Props) {
+/**
+ * Re-reads the tabs right before archiving, so a tab that changed page, became active, or started
+ * playing audio since the list was drawn is never closed by mistake.
+ */
+async function freshCandidates(ids: number[], scorer: Scorer, activity: ActivityState, prefs: Preferences) {
+  const now = Date.now();
+  const tabs = await Promise.all(ids.map((id) => chrome.tabs.get(id).catch(() => null)));
+  const requests: ArchiveRequest[] = [];
+  const places = new Map<string, TabPlace>();
+  for (const tab of tabs) {
+    if (!tab || tab.id === undefined || tab.incognito) continue;
+    const result = scorer.score(signalsOf(tab, activity, now), now);
+    if (!scorer.isArchiveCandidate(result)) continue;
+    const url = tab.url ?? '';
+    requests.push({
+      tabId: tab.id,
+      input: { url, title: tab.title ?? '', contentType: result.contentType, score: result.score },
+      policy: prefs.indexPolicy[result.contentType],
+    });
+    places.set(url, { windowId: tab.windowId, index: tab.index });
+  }
+  return { requests, places };
+}
+
+export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpenArchive }: Props) {
   const tabs = useTabs();
   const activity = useActivity(prefs.trackActivity);
   const scorer = useMemo(() => createScorer(prefs), [prefs]);
+  const [busy, setBusy] = useState(false);
+
+  async function archive(items: ScoredTab[]) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const ids = items.flatMap((i) => (i.tab.id === undefined ? [] : [i.tab.id]));
+      const { requests, places } = await freshCandidates(ids, scorer, activity, prefs);
+      const result = await archiveTabs(requests, { closeTabs, now: Date.now() });
+      const count = (reason: string) => result.skipped.filter((s) => s.reason === reason).length;
+      const archived = result.archivedTabIds.length;
+      notify({
+        text: formatArchiveResult(archived, result.closeFailedTabIds.length, count('sensitive'), count('notWebPage')),
+        undo:
+          archived > 0
+            ? async () => {
+                try {
+                  await undoArchive(result.undo, pageOpener(places));
+                  notify({ text: ARCHIVE_TEXT.undone });
+                } catch (err) {
+                  console.error('Burrow: undo failed', err);
+                  notify({ text: ARCHIVE_TEXT.undoFailed, error: true });
+                }
+              }
+            : undefined,
+      });
+    } catch (err) {
+      console.error('Burrow: archiving failed', err);
+      notify({ text: ARCHIVE_TEXT.saveFailed, error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const { candidates, keep, total } = useMemo(() => {
     const now = Date.now();
     const scored: ScoredTab[] = tabs
       .filter((t) => !t.incognito)
-      .map((tab) => {
-        const used = tab.id === undefined ? undefined : activityFor(activity, tab.id, now);
-        const signals = {
-          url: tab.url ?? '',
-          title: tab.title ?? '',
-          lastAccessed: tab.lastAccessed ?? now,
-          pinned: tab.pinned,
-          audible: tab.audible ?? false,
-          active: tab.active,
-          visitCount: used?.visits,
-          activeMs: used?.activeMs,
-        };
-        return { tab, result: scorer.score(signals, now) };
-      })
+      .map((tab) => ({ tab, result: scorer.score(signalsOf(tab, activity, now), now) }))
       .sort((a, b) => a.result.score - b.result.score);
     return {
       candidates: scored.filter((s) => scorer.isArchiveCandidate(s.result)),
@@ -151,9 +233,14 @@ export function TabList({ prefs, onEditPreferences }: Props) {
     <main class="tablist">
       <header class="bar">
         <h1>Burrow</h1>
-        <button type="button" class="secondary small" onClick={onEditPreferences}>
-          Preferences
-        </button>
+        <div class="buttons">
+          <button type="button" class="secondary small" onClick={onOpenArchive}>
+            Archive ({archiveCount})
+          </button>
+          <button type="button" class="secondary small" onClick={onEditPreferences}>
+            Preferences
+          </button>
+        </div>
       </header>
 
       <p class="summary">
@@ -162,10 +249,15 @@ export function TabList({ prefs, onEditPreferences }: Props) {
 
       {candidates.length > 0 && (
         <section>
-          <h2>Clutter (score below {prefs.archiveThreshold})</h2>
+          <div class="section-head">
+            <h2>Clutter (score below {prefs.archiveThreshold})</h2>
+            <button type="button" class="primary small" disabled={busy} onClick={() => void archive(candidates)}>
+              {ARCHIVE_TEXT.archiveAll(candidates.length)}
+            </button>
+          </div>
           <ul class="tabs">
             {candidates.map((item) => (
-              <Row key={item.tab.id} item={item} prefs={prefs} />
+              <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} onArchive={() => void archive([item])} />
             ))}
           </ul>
         </section>
@@ -175,7 +267,7 @@ export function TabList({ prefs, onEditPreferences }: Props) {
         <h2>Keeping</h2>
         <ul class="tabs">
           {keep.map((item) => (
-            <Row key={item.tab.id} item={item} prefs={prefs} />
+            <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} />
           ))}
         </ul>
       </section>
