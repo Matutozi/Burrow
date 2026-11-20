@@ -96,6 +96,35 @@ export function formatDate(epochMs: number): string {
   return new Date(epochMs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** Address-bar search. Chrome renders these as XML: %s is the user's text, already escaped by Chrome. */
+export const OMNIBOX_TEXT = {
+  defaultSuggestion: 'Search your Burrow archive for <match>%s</match>',
+  label: 'archived',
+};
+
+export const DATA_TEXT = {
+  importButton: 'Import from file',
+  deleteEverything: 'Delete all Burrow data',
+  confirmDeleteEverything:
+    'Delete all Burrow data on this device and in Chrome sync: preferences, archived pages and activity? You can undo this right after.',
+  deletedEverything: 'All Burrow data deleted.',
+  restoredEverything: 'Your data is back.',
+  deleteEverythingFailed: 'Could not delete everything. Some data may remain; try again.',
+  restoreFailed: 'Could not restore your data. Import your last export file to recover it.',
+  confirmImportPrefs: 'This file also has preferences. Replace your current preferences with them?',
+  imported: (n: number, unchanged: number) =>
+    `Imported ${plural(n, 'page')}${unchanged > 0 ? ` (${unchanged} already up to date)` : ''}`,
+  importedPrefs: 'preferences replaced',
+  importUndone: 'Import undone.',
+  importErrors: {
+    tooLarge: 'That file is too large to be a Burrow export.',
+    notJson: 'That file is not valid JSON.',
+    notBurrow: 'That file is not a Burrow export.',
+  } as Record<'tooLarge' | 'notJson' | 'notBurrow', string>,
+  importFailed: 'Could not import that file. Nothing was changed.',
+  undoFailed: 'Could not undo. Try again.',
+};
+
 export const AUTO_TEXT = {
   denied: 'Chrome did not allow scheduling, so Burrow will keep asking first.',
   missing: 'Scheduling permission was removed in Chrome settings. Choose "Archive automatically" again to restore it.',

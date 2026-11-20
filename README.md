@@ -3,8 +3,8 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: early MVP (step 5 of 7). Setup, scoring, activity tracking, archiving, page-text search and automatic
-> archiving work.
+> Status: early MVP (step 6 of 7). Setup, scoring, activity tracking, archiving, page-text search, automatic
+> archiving, address-bar search and full data controls work.
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -30,7 +30,12 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   at most 20 tabs per check. It never touches pinned, audible or open-in-front tabs, sensitive pages,
   browser pages, or the last tab in a window. A banner in the tab list shows what it archived, with
   one-click **Undo**.
-- **Your data, your file:** export everything Burrow keeps as JSON, or delete the whole archive (with undo).
+- **Search from the address bar:** type `burrow`, a space, then a few words. Matching archived pages
+  appear as suggestions; press Enter to open one. The page stays in your archive, like a bookmark you
+  never had to make.
+- **Your data, your file:** under **Archive → Your data** you can export everything as JSON, import an
+  export (for each page the newest copy wins, so an old backup never overwrites newer entries), delete
+  the archive, or delete all Burrow data. Every import and delete can be undone.
 - **Private by design:** no servers, no network requests (blocked by the extension's security
   policy), no analytics. Preferences sync only through your own Chrome profile. Archived pages
   stay on this device. Activity stays in memory and is cleared when Chrome closes.

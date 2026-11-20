@@ -4,10 +4,14 @@ import { createActivityStore, readActivity } from '../activity/store';
 import { EMPTY_ACTIVITY, focusTab, pruneTabs, removeTab, replaceTab } from '../activity/tracker';
 import { recordAutoRun } from '../archive/autoRun';
 import { runArchive } from '../archive/chromeApi';
+import { resolveEntered, suggest } from '../archive/omnibox';
 import { planArchive } from '../archive/plan';
+import { createArchiveSearch, type ArchiveRecord, type ArchiveSearch } from '../archive/record';
+import { listArchive, RECORD_PREFIX } from '../archive/store';
 import { loadPreferences, onPreferencesChanged } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
 import { createScorer } from '../scoring/score';
+import { OMNIBOX_TEXT } from '../sidepanel/format';
 
 const AUTO_ARCHIVE_ALARM = 'burrow-auto-archive';
 
@@ -102,7 +106,48 @@ async function init(): Promise<void> {
   await applySettings(await loadPreferences());
 }
 
+/**
+ * Address-bar search reads the archive on every keystroke, so the compiled search is cached while
+ * this worker is awake. It's a disposable copy of stored data (dropped on any archive change and
+ * whenever Chrome stops the worker), not state of its own.
+ */
+let archiveCache: Promise<{ records: ArchiveRecord[]; search: ArchiveSearch }> | null = null;
+function archiveForSearch() {
+  archiveCache ??= listArchive().then((records) => ({ records, search: createArchiveSearch(records) }));
+  archiveCache.catch(() => (archiveCache = null));
+  return archiveCache;
+}
+
+async function openFromOmnibox(text: string, disposition: `${chrome.omnibox.OnInputEnteredDisposition}`): Promise<void> {
+  const { records, search } = await archiveForSearch();
+  const rec = resolveEntered(text, records, search);
+  if (!rec) return;
+  // Opening from the address bar works like a bookmark: the page stays in the archive.
+  if (disposition === 'currentTab') {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab?.id !== undefined) {
+      await chrome.tabs.update(tab.id, { url: rec.url });
+      return;
+    }
+  }
+  await chrome.tabs.create({ url: rec.url, active: disposition !== 'newBackgroundTab' });
+}
+
 // Listeners must be registered synchronously at the top level so Chrome can wake the worker for them.
+chrome.omnibox.setDefaultSuggestion({ description: OMNIBOX_TEXT.defaultSuggestion });
+chrome.omnibox.onInputChanged.addListener((text, show) => {
+  archiveForSearch().then(
+    ({ search }) => show(suggest(search, text, OMNIBOX_TEXT.label)),
+    logError('address bar search failed'),
+  );
+});
+chrome.omnibox.onInputEntered.addListener((text, disposition) => {
+  void openFromOmnibox(text, disposition).catch(logError('could not open archived page'));
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && Object.keys(changes).some((k) => k.startsWith(RECORD_PREFIX))) archiveCache = null;
+});
+
 listenForAlarms();
 chrome.permissions.onAdded.addListener((perms) => {
   if (!perms.permissions?.includes('alarms')) return;

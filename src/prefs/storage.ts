@@ -22,7 +22,7 @@ export interface PreferenceAreas {
 /** Headroom under Chrome's per-item limit for the key name and encoding overhead. */
 const SYNC_HEADROOM_BYTES = 512;
 
-function chromeAreas(): PreferenceAreas {
+export function chromeAreas(): PreferenceAreas {
   const quota = chrome.storage.sync.QUOTA_BYTES_PER_ITEM ?? 8192;
   return { sync: chrome.storage.sync, local: chrome.storage.local, syncItemLimit: quota - SYNC_HEADROOM_BYTES };
 }
@@ -67,6 +67,11 @@ export async function savePreferences(
   await areas.local.set({ [KEY]: clean });
   await areas.sync.remove(KEY).catch(() => undefined);
   return clean;
+}
+
+/** Removes preferences from both areas. The next load returns defaults (and the setup wizard). */
+export async function deletePreferences(areas: PreferenceAreas = chromeAreas()): Promise<void> {
+  await Promise.all([areas.sync.remove(KEY), areas.local.remove(KEY)]);
 }
 
 /** Calls back with fresh preferences whenever they change in any context or on a synced device. */

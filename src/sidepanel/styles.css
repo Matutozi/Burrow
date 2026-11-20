@@ -149,3 +149,6 @@ input[type='search'] {
   border: 1px solid var(--accent); border-radius: var(--radius); background: var(--surface); font-size: 12px;
 }
 .banner span { flex: 1; }
+/* Keep the undo message above the wizard's fixed button bar. */
+.raise .toast-region { bottom: 60px; }
+kbd { font: 11px ui-monospace, monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }

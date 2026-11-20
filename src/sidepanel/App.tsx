@@ -31,17 +31,23 @@ export function App() {
   if (loadError) return <p class="error">Could not load your settings. Close and reopen the side panel to retry.</p>;
   if (!prefs) return null;
 
+  const toastView = <Toast msg={toast} onClose={() => setToast(null)} />;
+
   if (!prefs.onboarded || editing) {
     return (
-      <Onboarding
-        initial={prefs}
-        onDone={async (next) => {
-          // Throws on failure. Onboarding stays open and offers a retry.
-          setPrefs(await savePreferences({ ...next, onboarded: true }));
-          setEditing(false);
-        }}
-        onCancel={prefs.onboarded ? () => setEditing(false) : undefined}
-      />
+      <>
+        <Onboarding
+          initial={prefs}
+          onDone={async (next) => {
+            // Throws on failure. Onboarding stays open and offers a retry.
+            setPrefs(await savePreferences({ ...next, onboarded: true }));
+            setEditing(false);
+          }}
+          onCancel={prefs.onboarded ? () => setEditing(false) : undefined}
+        />
+        {/* Stays visible after "Delete all data" sends the user back to setup, so undo is still offered. */}
+        <div class="raise">{toastView}</div>
+      </>
     );
   }
 
@@ -58,7 +64,7 @@ export function App() {
           onOpenArchive={() => setView('archive')}
         />
       )}
-      <Toast msg={toast} onClose={() => setToast(null)} />
+      {toastView}
     </>
   );
 }

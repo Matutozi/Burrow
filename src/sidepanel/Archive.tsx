@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { buildExport, exportFileName } from '../archive/export';
 import { createArchiveSearch, textSnippet, type ArchiveRecord } from '../archive/record';
 import { listArchive, onArchiveChanged, putRecords, removeRecords, restoreRecords } from '../archive/store';
 import { hostOf } from '../prefs/classify';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { pageOpener } from '../archive/chromeApi';
-import { downloadJson } from './chromeTabs';
+import { DataControls } from './DataControls';
 import { ARCHIVE_TEXT, formatDate } from './format';
 import type { Notify } from './Toast';
 
@@ -91,16 +90,6 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
     }
   }
 
-  function exportData() {
-    try {
-      const now = Date.now();
-      downloadJson(buildExport(prefs, records, now), exportFileName(now));
-    } catch (err) {
-      console.error('Burrow: export failed', err);
-      notify({ text: ARCHIVE_TEXT.exportFailed, error: true });
-    }
-  }
-
   return (
     <main class="tablist">
       <header class="bar">
@@ -164,26 +153,7 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
         </button>
       )}
 
-      <section class="advanced">
-        <h2>Your data</h2>
-        <p class="muted">Archived pages are stored on this device only. Click a page to reopen it.</p>
-        <div class="buttons">
-          <button type="button" class="secondary small" onClick={exportData}>
-            Export all data
-          </button>
-          {records.length > 0 && (
-            <button
-              type="button"
-              class="secondary small danger"
-              onClick={() => {
-                if (confirm(ARCHIVE_TEXT.confirmDeleteAll(records.length))) void deleteWithUndo(records);
-              }}
-            >
-              Delete all archived pages
-            </button>
-          )}
-        </div>
-      </section>
+      <DataControls prefs={prefs} records={records} notify={notify} onDeleteRecords={deleteWithUndo} />
     </main>
   );
 }

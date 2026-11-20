@@ -1,6 +1,6 @@
 # Burrow Privacy Policy
 
-_Last updated: 2026-11-20 (v0.5.0)_
+_Last updated: 2026-11-20 (v0.6.0)_
 
 Burrow is built so that your data never leaves your control.
 
@@ -25,6 +25,9 @@ page types set to "Full text", and never on pages that contain a password box. I
 pages you're just browsing, and it doesn't save form contents. Turning the setting off hands the
 page access back to Chrome. Text you already saved stays in your archive until you delete it.
 
+Address-bar search (`burrow` + space) runs inside Burrow. Chrome passes what you type after the
+keyword only to Burrow, and Burrow looks it up in your on-device archive.
+
 ## What Burrow never does
 - It runs no servers and makes no network requests. Its security policy tells Chrome to block
   any network connection from Burrow's pages.
@@ -37,8 +40,12 @@ Under laws such as the GDPR, Nigeria's Data Protection Act 2023 and the CCPA, yo
 export and delete your data. Because everything stays in your own browser, you keep full
 control:
 - **Access and change:** open Burrow, then **Preferences**.
-- **Export:** **Archive → Export all data** saves your preferences and archive as a JSON file.
-- **Delete:** **Archive** lets you delete single pages or the whole archive (with undo).
+- **Export:** **Archive → Your data → Export all data** saves your preferences and archive as a JSON
+  file. **Import from file** brings an export back, on this or another device. The file never passes
+  through any server.
+- **Delete:** **Archive** lets you delete single pages or the whole archive. **Delete all Burrow data**
+  erases your preferences (here and in Chrome sync), archive and activity in one step. Each can be
+  undone right after.
   Removing the extension deletes all of its data from this device. Chrome sync removes the synced
   preferences once the extension is uninstalled on all your devices.
 

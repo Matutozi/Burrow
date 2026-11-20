@@ -26,6 +26,8 @@ export default defineManifest((env) => ({
   // Burrow never runs in, reads, or stores anything from incognito windows.
   incognito: 'not_allowed',
   action: { default_title: 'Open Burrow' },
+  // Type "burrow" then a space in the address bar to search archived pages. Needs no permission.
+  omnibox: { keyword: 'burrow' },
   side_panel: { default_path: 'src/sidepanel/index.html' },
   background: { service_worker: 'src/background/service-worker.ts', type: 'module' },
   permissions: ['tabs', 'storage', 'sidePanel', 'idle'],

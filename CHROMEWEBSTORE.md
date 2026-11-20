@@ -1,6 +1,6 @@
 # Chrome Web Store Listing: Burrow
 
-> Last Updated: 2026-11-20 · Not yet published (MVP step 5 of 7)
+> Last Updated: 2026-11-20 · Not yet published (MVP step 6 of 7)
 
 ## Store Listing
 
@@ -15,7 +15,9 @@ Tell Burrow what matters to you: the kind of work you do, which types of pages a
 
 How to use it: click the Burrow icon to open the side panel, answer a few setup questions, and your tabs appear sorted into "Clutter" and "Keeping", each with a score and a short reason. Click any tab to jump to it.
 
-Archive instead of close: archive one clutter tab or all of them at once. Burrow saves each page's title and address before closing the tab, every archive can be undone, and the Archive view lets you search, reopen or delete archived pages. Email, banking and health pages are never archived by default. You can export all your data as a file at any time.
+Archive instead of close: archive one clutter tab or all of them at once. Burrow saves each page's title and address before closing the tab, every archive can be undone, and the Archive view lets you search, reopen or delete archived pages. Email, banking and health pages are never archived by default. You can export all your data as a file, import it again on any device, or delete everything at any time, and every import and delete can be undone.
+
+Search from the address bar: type "burrow", a space and a few words to find any archived page without opening the side panel. You'll never need a bookmark for "that page I had open last week".
 
 Automatic cleanup (optional): let Burrow archive clutter on a schedule. You choose how often it checks, how long a tab must be untouched, and how many tabs it may archive at once. Pinned, playing and current tabs, sensitive pages and the last tab in a window are never touched, and every automatic cleanup can be undone with one click.
 
@@ -98,3 +100,4 @@ Support: https://github.com/Matutozi/Burrow/issues
 | 0.3.0 | 2026-11-20 | Archiving: save-then-close, undo, searchable Archive view with reopen and delete, data export. No new permissions. Not submitted. |
 | 0.4.0 | 2026-11-20 | Opt-in page-text saving for "Full text" pages and search inside archived pages with snippets. New optional permissions: scripting and http/https host access, requested only on opt-in. Not submitted. |
 | 0.5.0 | 2026-11-20 | Automatic archiving on a user-set schedule with safety limits (minimum untouched time, per-run cap, never the last tab in a window) and a one-click undo banner. New optional permission: alarms. Existing "auto" choices reset to "ask first" until the user opts in again. Not submitted. |
+| 0.6.0 | 2026-11-20 | Address-bar search of the archive (omnibox keyword "burrow", no permission needed); import of export files with newest-wins merge and undo; "Delete all Burrow data" with undo. No new permissions. Not submitted. |
