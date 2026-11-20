@@ -31,21 +31,35 @@ These rules are non-negotiable. Every change must follow them.
 - Request permissions only when a feature needs them. Prefer `optional_permissions` and
   `optional_host_permissions`. Never ask for `<all_urls>` up front.
 
+- The production CSP sets `connect-src 'none'`, so Chrome itself blocks network access from
+  extension pages. CI fails if a network API appears in the build. Never loosen this without an
+  explicit, documented decision.
+- `incognito: "not_allowed"` stays in the manifest.
+
 ## 4. Data integrity
+- **Never trust stored data.** Everything read from storage goes through `sanitizePreferences`
+  (validate.ts): wrong types fall back to defaults, numbers are clamped, lists are capped.
+- When copies disagree, the newest `updatedAt` wins, so a failed cleanup can never resurrect stale data.
 - Never close a tab until its archive record is durably saved. If saving fails, keep the tab.
 - Nothing is ever deleted without an explicit user action, and every destructive action has an undo.
-- Version stored data (`Preferences.version`) and migrate it. Never silently drop fields.
+- Version stored data (`PREFERENCES_VERSION`) and add a step to `migrate()` for every shape change.
 
-## 5. Code standards
+## 5. Architecture
+- **Compile once, run many:** `createScorer(prefs)` and `createClassifier()` precompute maps and
+  regexes per preference change. Never rebuild them per tab.
+- The engine returns structured `ScoreReason` codes. All wording lives in `sidepanel/format.ts`.
+- Storage takes injectable areas (`PreferenceAreas`) so integrity logic is unit-tested with fakes.
+
+## 6. Code standards
 - The service worker holds no state in memory. Chrome stops idle workers, so persist state in storage.
 - Pure, unit-tested logic lives in `src/prefs` and `src/scoring`. The UI stays thin.
 - async/await everywhere, and handle every rejected promise.
 - Strict TypeScript. No `any`.
-- Run `npm run typecheck && npm test && npm run build` before every commit.
+- Run `npm run check` (typecheck + tests + build) before every commit. CI runs the same.
 - Update CHROMEWEBSTORE.md whenever permissions, data use, or user-facing features change.
 
 ## Layout
 - `src/background/service-worker.ts`: event wiring only
-- `src/prefs/`: preference types, defaults, classifier, site rules, storage
+- `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
-- `src/sidepanel/`: Preact UI (setup wizard, tab list)
+- `src/sidepanel/`: Preact UI (setup wizard, tab list) and all user-facing wording (`format.ts`)

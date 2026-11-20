@@ -7,16 +7,23 @@ import { TabList } from './TabList';
 export function App() {
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   const [editing, setEditing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    loadPreferences()
-      .then(setPrefs)
-      .catch(() => setError('Could not load your settings.'));
-    return onPreferencesChanged(setPrefs);
+    let changedMeanwhile = false;
+    const unsubscribe = onPreferencesChanged((next) => {
+      changedMeanwhile = true;
+      setPrefs(next);
+    });
+    loadPreferences().then(
+      // A change event that arrived first is newer than this initial read.
+      (loaded) => !changedMeanwhile && setPrefs(loaded),
+      () => setLoadError(true),
+    );
+    return unsubscribe;
   }, []);
 
-  if (error) return <p class="error">{error}</p>;
+  if (loadError) return <p class="error">Could not load your settings. Close and reopen the side panel to retry.</p>;
   if (!prefs) return null;
 
   if (!prefs.onboarded || editing) {
@@ -24,12 +31,9 @@ export function App() {
       <Onboarding
         initial={prefs}
         onDone={async (next) => {
-          try {
-            await savePreferences({ ...next, onboarded: true });
-            setEditing(false);
-          } catch {
-            setError('Could not save your settings.');
-          }
+          // Throws on failure. Onboarding stays open and offers a retry.
+          setPrefs(await savePreferences({ ...next, onboarded: true }));
+          setEditing(false);
         }}
         onCancel={prefs.onboarded ? () => setEditing(false) : undefined}
       />

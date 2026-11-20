@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { defaultPreferences } from '../prefs/defaults';
-import { isArchiveCandidate, matchedTopics, scoreTab, type TabSignals } from './score';
+import type { Preferences } from '../prefs/types';
+import { createScorer, createTopicMatcher, scoreTab, type TabScore, type TabSignals } from './score';
+
+const isArchiveCandidate = (r: TabScore, p: Preferences) => createScorer(p).isArchiveCandidate(r);
 
 const NOW = Date.UTC(2026, 10, 20, 12);
 const DAY = 24 * 60 * 60 * 1000;
@@ -48,7 +51,7 @@ describe('scoreTab', () => {
     expect(docs.score).toBe(55);
     expect(social.contentType).toBe('social');
     expect(social.score).toBe(15);
-    expect(social.reasons.map((r) => r.label)).toContain('social is low priority for you');
+    expect(social.reasons).toContainEqual({ code: 'priority', points: -20, contentType: 'social', priority: 'low' });
   });
 
   it('boosts tabs that match a topic', () => {
@@ -96,14 +99,41 @@ describe('scoreTab', () => {
   });
 });
 
-describe('matchedTopics', () => {
-  it('matches whole words in title or URL, case-insensitively', () => {
-    expect(matchedTopics({ title: 'Intro to Machine Learning', url: 'https://x.com' }, ['machine learning'])).toEqual(['machine learning']);
-    expect(matchedTopics({ title: 'x', url: 'https://site.com/rust/book' }, ['rust'])).toEqual(['rust']);
-    expect(matchedTopics({ title: 'Trustworthy', url: 'https://a.com' }, ['rust'])).toEqual([]);
+describe('createTopicMatcher', () => {
+  it('matches whole words, case-insensitively', () => {
+    expect(createTopicMatcher(['machine learning'])('Intro to Machine Learning')).toBe('machine learning');
+    expect(createTopicMatcher(['rust'])('https://site.com/rust/book')).toBe('rust');
+    expect(createTopicMatcher(['rust'])('Trustworthy')).toBeNull();
   });
 
   it('handles topics with regex characters', () => {
-    expect(matchedTopics({ title: 'C++ tips', url: 'https://a.com' }, ['c++'])).toEqual(['c++']);
+    expect(createTopicMatcher(['c++'])('C++ tips')).toBe('c++');
+    expect(createTopicMatcher(['a.b'])('axb')).toBeNull();
+  });
+
+  it('prefers the longer topic when both match', () => {
+    expect(createTopicMatcher(['machine', 'machine learning'])('machine learning 101')).toBe('machine learning');
+  });
+
+  it('matches nothing when there are no topics', () => {
+    expect(createTopicMatcher([' ', ''])('anything')).toBeNull();
+  });
+});
+
+describe('createScorer', () => {
+  it('is fast enough for 1,000 tabs with 100 topics', () => {
+    const prefs = { ...defaultPreferences(), topics: Array.from({ length: 100 }, (_, i) => `topic${i}`) };
+    const scorer = createScorer(prefs);
+    const start = performance.now();
+    for (let i = 0; i < 1000; i++) scorer.score(tab({ url: `https://site${i}.com/x`, title: `Title ${i}` }), NOW);
+    expect(performance.now() - start).toBeLessThan(50);
+  });
+
+  it('uses the configurable activity curve', () => {
+    const prefs = defaultPreferences();
+    const half = createScorer(prefs).score(tab({ visitCount: 10 }), NOW);
+    expect(half.score).toBe(78); // 70 + 15 * (1 + 0) / 2
+    const tuned = { ...prefs, weights: { ...prefs.weights, activityFullVisits: 1 } };
+    expect(createScorer(tuned).score(tab({ visitCount: 1 }), NOW).score).toBe(78);
   });
 });

@@ -1,4 +1,4 @@
-import type { ContentType, IndexPolicy, Persona, Preferences, Priority, ScoringWeights } from './types';
+import { PREFERENCES_VERSION, type ContentType, type IndexPolicy, type Persona, type Preferences, type Priority, type ScoringWeights } from './types';
 
 const ALL_NORMAL: Record<ContentType, Priority> = {
   docs: 'normal',
@@ -59,6 +59,8 @@ export const DEFAULT_INDEX_POLICY: Record<ContentType, IndexPolicy> = {
 export const DEFAULT_WEIGHTS: ScoringWeights = {
   recencyMax: 70,
   activityMax: 15,
+  activityFullVisits: 10,
+  activityFullMinutes: 30,
   priorityPoints: 20,
   topicPoints: 15,
   lowPrioritySitePoints: 25,
@@ -66,7 +68,8 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
 
 export function defaultPreferences(persona: Persona = 'general'): Preferences {
   return {
-    version: 1,
+    version: PREFERENCES_VERSION,
+    updatedAt: 0,
     onboarded: false,
     persona,
     contentPriority: { ...PERSONA_PRIORITIES[persona] },
@@ -80,5 +83,7 @@ export function defaultPreferences(persona: Persona = 'general'): Preferences {
     staleAfterDays: 3,
     archiveThreshold: 30,
     mode: 'suggest',
+    trackActivity: true,
+    idleAfterSeconds: 120,
   };
 }

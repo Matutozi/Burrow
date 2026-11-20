@@ -62,9 +62,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .rows li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .tag { margin-left: 6px; font-size: 10px; padding: 1px 6px; border-radius: 10px; background: var(--surface); }
 .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
-.segmented button { border: 0; border-radius: 0; background: transparent; padding: 4px 8px; font-size: 12px; }
-.segmented button + button { border-left: 1px solid var(--border); }
-.segmented button.on { background: var(--accent); color: var(--accent-text); }
+.segmented label { position: relative; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+.segmented label + label { border-left: 1px solid var(--border); }
+.segmented label.on { background: var(--accent); color: var(--accent-text); }
+/* Visually hidden but still focusable, so arrow keys and screen readers work. */
+.segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.segmented label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
 .field { display: grid; gap: 4px; margin: 12px 0; border: 0; padding: 0; }
 .field legend { padding: 0; margin-bottom: 4px; }
 textarea, select, input[type='text'] {
@@ -82,6 +85,10 @@ input[type='range'] { width: 100%; accent-color: var(--accent); }
 .bar { display: flex; justify-content: space-between; align-items: center; }
 .summary { color: var(--muted); margin-top: 6px; }
 .tabs li + li { margin-top: 2px; }
+/* Skip layout and paint for off-screen rows: keeps long lists smooth. */
+.tabs li { content-visibility: auto; contain-intrinsic-size: auto 44px; }
+.primary:disabled { opacity: 0.6; cursor: default; }
+.actions .error-text { align-self: center; font-size: 12px; }
 .tab {
   display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left;
   background: transparent; border: 0; padding: 6px;

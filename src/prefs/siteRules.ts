@@ -1,5 +1,5 @@
-import { normalizeDomain } from './classify';
 import { CONTENT_TYPES, type ContentType, type SiteRule } from './types';
+import { cleanDomain } from './validate';
 
 export interface ParseResult {
   rules: SiteRule[];
@@ -17,7 +17,7 @@ export function parseSiteRules(text: string): ParseResult {
     const line = raw.trim();
     if (!line) continue;
     const [left, right, ...rest] = line.split('=');
-    const domain = normalizeDomain(left ?? '');
+    const domain = cleanDomain(left ?? '');
     const type = (right ?? '').trim().toLowerCase();
     if (rest.length || !domain || !TYPES.has(type)) {
       invalid.push(line);

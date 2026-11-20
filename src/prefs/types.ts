@@ -44,8 +44,12 @@ export type ArchiveMode = 'suggest' | 'auto';
 export interface ScoringWeights {
   /** Max points for a recently used tab. */
   recencyMax: number;
-  /** Max points from visits and time on page. */
+  /** Max points from visits and time on page. Half comes from each. */
   activityMax: number;
+  /** Visits needed to earn the full visits half of the activity points. */
+  activityFullVisits: number;
+  /** Minutes on a tab needed to earn the full time half of the activity points. */
+  activityFullMinutes: number;
   /** Points added for high-priority and removed for low-priority content. */
   priorityPoints: number;
   /** Points added when a tab matches one of the user's topics. */
@@ -60,8 +64,13 @@ export interface SiteRule {
   type: ContentType;
 }
 
+/** Current schema version. Bump it and add a migration in validate.ts when the shape changes. */
+export const PREFERENCES_VERSION = 1;
+
 export interface Preferences {
-  version: 1;
+  version: typeof PREFERENCES_VERSION;
+  /** Epoch ms of the last save. Newest copy wins when sync and local disagree. */
+  updatedAt: number;
   onboarded: boolean;
   persona: Persona;
   contentPriority: Record<ContentType, Priority>;
@@ -82,4 +91,8 @@ export interface Preferences {
   /** Tabs scoring below this are archive candidates. */
   archiveThreshold: number;
   mode: ArchiveMode;
+  /** Let Burrow measure visits and time on each tab. Data stays in memory and is cleared when Chrome closes. */
+  trackActivity: boolean;
+  /** Stop counting time on a tab after this many seconds without keyboard or mouse input. */
+  idleAfterSeconds: number;
 }

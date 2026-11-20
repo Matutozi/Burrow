@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
-import { isArchiveCandidate, scoreTab, type TabScore } from '../scoring/score';
+import { createScorer, type TabScore } from '../scoring/score';
+import { formatReasons } from './format';
 
 interface Props {
   prefs: Preferences;
@@ -54,9 +55,10 @@ function useTabs(): chrome.tabs.Tab[] {
   return tabs;
 }
 
-function scoreClass(score: number, prefs: Preferences): string {
-  if (score < prefs.archiveThreshold) return 'low';
-  if (score < 60) return 'mid';
+/** Colour bands derived from the user's threshold: clutter, the lower half of the rest, the upper half. */
+function scoreClass(score: number, threshold: number): string {
+  if (score < threshold) return 'low';
+  if (score < threshold + (100 - threshold) / 2) return 'mid';
   return 'high';
 }
 
@@ -72,18 +74,17 @@ async function focusTab(tab: chrome.tabs.Tab) {
 
 function Row({ item, prefs }: { item: ScoredTab; prefs: Preferences }) {
   const { tab, result } = item;
-  const reason = result.reasons.map((r) => (r.points ? `${r.label} (${r.points > 0 ? '+' : ''}${r.points})` : r.label)).join(' · ');
   return (
     <li>
       <button type="button" class="tab" onClick={() => focusTab(tab)} title={tab.url}>
-        <span class={`score ${scoreClass(result.score, prefs)}`} aria-label={`Score ${result.score}`}>
+        <span class={`score ${scoreClass(result.score, prefs.archiveThreshold)}`} aria-label={`Score ${result.score}`}>
           {result.score}
         </span>
         <span class="body">
           <span class="title">{tab.title || tab.url}</span>
           <span class="reason">
             <span class="type">{CONTENT_TYPE_LABELS[result.contentType]}</span>
-            {result.protected && <span class="type">protected</span>} {reason}
+            {result.protected && <span class="type">protected</span>} {formatReasons(result.reasons)}
           </span>
         </span>
       </button>
@@ -93,14 +94,15 @@ function Row({ item, prefs }: { item: ScoredTab; prefs: Preferences }) {
 
 export function TabList({ prefs, onEditPreferences }: Props) {
   const tabs = useTabs();
+  const scorer = useMemo(() => createScorer(prefs), [prefs]);
 
-  const { candidates, keep } = useMemo(() => {
+  const { candidates, keep, total } = useMemo(() => {
     const now = Date.now();
     const scored: ScoredTab[] = tabs
       .filter((t) => !t.incognito)
       .map((tab) => ({
         tab,
-        result: scoreTab(
+        result: scorer.score(
           {
             url: tab.url ?? '',
             title: tab.title ?? '',
@@ -109,16 +111,16 @@ export function TabList({ prefs, onEditPreferences }: Props) {
             audible: tab.audible ?? false,
             active: tab.active,
           },
-          prefs,
           now,
         ),
       }))
       .sort((a, b) => a.result.score - b.result.score);
     return {
-      candidates: scored.filter((s) => isArchiveCandidate(s.result, prefs)),
-      keep: scored.filter((s) => !isArchiveCandidate(s.result, prefs)).reverse(),
+      candidates: scored.filter((s) => scorer.isArchiveCandidate(s.result)),
+      keep: scored.filter((s) => !scorer.isArchiveCandidate(s.result)).reverse(),
+      total: scored.length,
     };
-  }, [tabs, prefs]);
+  }, [tabs, scorer]);
 
   return (
     <main class="tablist">
@@ -130,7 +132,7 @@ export function TabList({ prefs, onEditPreferences }: Props) {
       </header>
 
       <p class="summary">
-        {tabs.length} open tab{tabs.length === 1 ? '' : 's'} · <strong>{candidates.length}</strong> look like clutter
+        {total} open tab{total === 1 ? '' : 's'} · <strong>{candidates.length}</strong> look like clutter
       </p>
 
       {candidates.length > 0 && (

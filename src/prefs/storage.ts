@@ -1,58 +1,78 @@
-import { defaultPreferences, DEFAULT_WEIGHTS } from './defaults';
 import type { Preferences } from './types';
+import { sanitizePreferences } from './validate';
 
 const KEY = 'preferences';
 
-/**
- * Chrome sync storage allows 8 KB per item. Preferences normally use well under 2 KB,
- * but long site lists could exceed that, so leave headroom and fall back to local.
- */
-const SYNC_ITEM_LIMIT = 7_000;
+/** The subset of chrome.storage.StorageArea Burrow uses, so tests can pass an in-memory fake. */
+export interface StorageAreaLike {
+  get(key: string): Promise<Record<string, unknown>>;
+  set(items: Record<string, unknown>): Promise<void>;
+  remove(key: string): Promise<void>;
+}
 
-/** Fills in any fields missing from older saved versions. */
-export function withDefaults(saved: Partial<Preferences> | undefined): Preferences {
-  const base = defaultPreferences(saved?.persona);
-  if (!saved) return base;
-  return {
-    ...base,
-    ...saved,
-    contentPriority: { ...base.contentPriority, ...saved.contentPriority },
-    indexPolicy: { ...base.indexPolicy, ...saved.indexPolicy },
-    weights: { ...DEFAULT_WEIGHTS, ...saved.weights },
-  };
+export interface PreferenceAreas {
+  /** The user's Chrome profile. Syncs across their devices if Chrome sync is on. */
+  sync: StorageAreaLike;
+  /** This device only. Used when an item is too big for sync, or sync fails. */
+  local: StorageAreaLike;
+  /** Max bytes for one sync item. */
+  syncItemLimit: number;
+}
+
+/** Headroom under Chrome's per-item limit for the key name and encoding overhead. */
+const SYNC_HEADROOM_BYTES = 512;
+
+function chromeAreas(): PreferenceAreas {
+  const quota = chrome.storage.sync.QUOTA_BYTES_PER_ITEM ?? 8192;
+  return { sync: chrome.storage.sync, local: chrome.storage.local, syncItemLimit: quota - SYNC_HEADROOM_BYTES };
+}
+
+function updatedAtOf(v: unknown): number {
+  const t = (v as { updatedAt?: unknown } | undefined)?.updatedAt;
+  return typeof t === 'number' && Number.isFinite(t) ? t : 0;
 }
 
 /**
- * Preferences live in the user's own Chrome profile. With Chrome sync on, they follow the user
- * to their other devices. Burrow runs no server and never sees them.
- * Only preferences sync: archived pages and activity history stay on this device.
+ * Preferences live in the user's own Chrome profile. Burrow runs no server and never sees them.
+ * Both areas are read and the most recently saved copy wins, so a failed cleanup in one area
+ * can never hide a newer value in the other.
  */
-export async function loadPreferences(): Promise<Preferences> {
-  const [synced, local] = await Promise.all([chrome.storage.sync.get(KEY), chrome.storage.local.get(KEY)]);
-  return withDefaults((synced[KEY] ?? local[KEY]) as Partial<Preferences> | undefined);
+export async function loadPreferences(areas: PreferenceAreas = chromeAreas()): Promise<Preferences> {
+  const [synced, local] = await Promise.all([areas.sync.get(KEY), areas.local.get(KEY)]);
+  const a = synced[KEY];
+  const b = local[KEY];
+  const newest = a === undefined ? b : b === undefined ? a : updatedAtOf(b) > updatedAtOf(a) ? b : a;
+  return sanitizePreferences(newest);
 }
 
-export async function savePreferences(prefs: Preferences): Promise<void> {
-  const size = new TextEncoder().encode(JSON.stringify({ [KEY]: prefs })).length;
-  if (size <= SYNC_ITEM_LIMIT) {
+/** Validates, timestamps and saves. Returns what was stored. */
+export async function savePreferences(
+  prefs: Preferences,
+  areas: PreferenceAreas = chromeAreas(),
+  now: number = Date.now(),
+): Promise<Preferences> {
+  const clean = sanitizePreferences({ ...prefs, updatedAt: now });
+  const size = new TextEncoder().encode(JSON.stringify(clean)).length;
+
+  if (size <= areas.syncItemLimit) {
     try {
-      await chrome.storage.sync.set({ [KEY]: prefs });
-      await chrome.storage.local.remove(KEY);
-      return;
+      await areas.sync.set({ [KEY]: clean });
+      // Best effort: even if this fails, the newer timestamp in sync wins on the next load.
+      await areas.local.remove(KEY).catch(() => undefined);
+      return clean;
     } catch (err) {
-      // Quota or rate limit hit: keep the user's change locally rather than losing it.
-      console.warn('Burrow: sync storage unavailable, saving preferences locally', err);
+      console.warn('Burrow: sync storage unavailable, saving preferences on this device', err);
     }
   }
-  await chrome.storage.local.set({ [KEY]: prefs });
-  await chrome.storage.sync.remove(KEY).catch(() => undefined);
+  await areas.local.set({ [KEY]: clean });
+  await areas.sync.remove(KEY).catch(() => undefined);
+  return clean;
 }
 
-/** Calls back whenever preferences change in any extension context or synced device. Returns an unsubscribe function. */
+/** Calls back with fresh preferences whenever they change in any context or on a synced device. */
 export function onPreferencesChanged(cb: (prefs: Preferences) => void): () => void {
   const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
     if ((area === 'sync' || area === 'local') && KEY in changes) {
-      // A removal in one area just means the value moved to the other, so reload the source of truth.
       loadPreferences().then(cb, (err: unknown) => console.error('Burrow: could not reload preferences', err));
     }
   };

@@ -55,28 +55,60 @@ export interface ClassifyOptions {
   useBuiltIns?: boolean;
 }
 
-export function classify(url: string, options: ClassifyOptions = {}): ContentType {
-  const host = hostOf(url);
-  if (!host) return 'other';
+export type Classifier = (url: string) => ContentType;
 
-  const userMatch = (options.siteRules ?? [])
-    .filter((r) => matchesDomain(host, r.domain))
-    .sort((a, b) => b.domain.length - a.domain.length)[0];
-  if (userMatch) return userMatch.type;
-  if (options.useBuiltIns === false) return 'other';
+const SENSITIVE: ReadonlySet<ContentType> = new Set(['email', 'finance', 'health']);
 
-  // Sensitive types first so e.g. a bank never gets labelled "article".
+/** domain -> type for the built-in lists. If a domain appears twice, the sensitive type wins. */
+const BUILT_IN_MAP: ReadonlyMap<string, ContentType> = (() => {
+  const map = new Map<string, ContentType>();
   for (const [type, domains] of Object.entries(BUILT_IN_DOMAINS) as [ContentType, string[]][]) {
-    if (domains.some((d) => matchesDomain(host, d))) return type;
+    for (const d of domains) {
+      const existing = map.get(d);
+      if (!existing || !SENSITIVE.has(existing)) map.set(d, type);
+    }
   }
-  let path = '';
-  try {
-    path = new URL(url).pathname;
-  } catch {
-    /* already handled by hostOf */
+  return map;
+})();
+
+/** Looks up host, then each parent domain, so the most specific entry wins in O(labels). */
+function lookup(map: ReadonlyMap<string, ContentType>, host: string): ContentType | undefined {
+  let h = host;
+  for (;;) {
+    const hit = map.get(h);
+    if (hit) return hit;
+    const dot = h.indexOf('.');
+    if (dot < 0) return undefined;
+    h = h.slice(dot + 1);
   }
-  for (const [re, type] of BUILT_IN_PATTERNS) {
-    if (re.test(host + path)) return type;
-  }
-  return 'other';
+}
+
+/** Builds a fast classifier once per preference change. */
+export function createClassifier(options: ClassifyOptions = {}): Classifier {
+  const userMap = new Map((options.siteRules ?? []).map((r) => [r.domain, r.type] as const));
+  const useBuiltIns = options.useBuiltIns !== false;
+  return (url) => {
+    const host = hostOf(url);
+    if (!host) return 'other';
+    const user = lookup(userMap, host);
+    if (user) return user;
+    if (!useBuiltIns) return 'other';
+    const builtIn = lookup(BUILT_IN_MAP, host);
+    if (builtIn) return builtIn;
+    let path = '';
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      /* hostOf already validated the URL */
+    }
+    for (const [re, type] of BUILT_IN_PATTERNS) {
+      if (re.test(host + path)) return type;
+    }
+    return 'other';
+  };
+}
+
+/** One-off convenience. Prefer createClassifier when classifying many URLs. */
+export function classify(url: string, options: ClassifyOptions = {}): ContentType {
+  return createClassifier(options)(url);
 }
