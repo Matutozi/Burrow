@@ -116,7 +116,9 @@ export function planArchive(
   const requests = picked.map(({ tab, id, url, policy, result }) => {
     places[url] = { windowId: tab.windowId, index: tab.index };
     // Sleeping (discarded) tabs have no page loaded, so there is nothing to read from them.
-    if (policy === 'full' && !tab.discarded && archiveBlocker(url, 'full') === null) readable.push(id);
+    // Pages are read for deadlines too, so every savable page is readable; record.ts keeps the text
+    // only when the policy is "full" and otherwise keeps just the deadline date.
+    if (policy !== 'never' && !tab.discarded && archiveBlocker(url, policy) === null) readable.push(id);
     const input = {
       url,
       title: tab.title ?? '',

@@ -1,14 +1,18 @@
 # Chrome Web Store Listing: Burrow
 
-> Last Updated: 2026-11-21 · Version 1.6.0 · Ready to submit (see [Submission checklist](#submission-checklist))
+> Last Updated: 2026-11-21 · Version 1.7.0 · Ready to submit (see [Submission checklist](#submission-checklist))
 
 ## Store Listing
 
 **Extension Name:** Burrow
 
-**Short Description:** Scores your open tabs, archives the clutter instead of closing it, and keeps every page searchable. Nothing leaves your device.
+**Short Description:** Declare tab bankruptcy without losing anything: put finished tabs away and find any of them again in seconds. Private.
 
 **Detailed Description:**
+Declare tab bankruptcy without losing anything. Burrow spots the tabs you're done with, puts them away (closed, so your computer gets its memory back) and lets you find any of them again in seconds: by title, site, a name you gave them, or what the page said. No setup, and nothing ever leaves your computer.
+
+Open Burrow and it tells you, in plain words, how many of your tabs look finished, with a preview before anything closes. Every tab is marked Put away, Not sure or Keep. The search box at the top finds anything you put away, and saved internships, grants and applications with a deadline coming up are listed under Closing soon.
+
 Burrow gives every open tab a score from 0 to 100, based on how recently and how much you actually use it, and tells you why, so you can see at a glance which tabs matter and which are clutter.
 
 Tell Burrow what matters to you: the kind of work you do, which types of pages are important, your own categories (like "IEEE opportunities" or "Travel grants", spotted by site or keyword), the topics you follow, and the sites you always or never care about. Scores follow your preferences, and you can fine-tune every part of the formula.
@@ -29,7 +33,7 @@ Automatic cleanup (optional): let Burrow archive clutter on a schedule. You choo
 
 Search inside pages (optional): turn on page-text saving and Burrow keeps the readable text of pages you archive, so you can find them later by what they said, not just their title. It's off by default, asks for permission only when you turn it on, and skips pages with password fields.
 
-Pricing: try everything free for 14 days. After that, a one-time license unlocks archiving new tabs and automatic cleanup. Your archive is never locked: reopening, searching, export and delete always stay free. License keys are checked on your device, without contacting any server.
+Pricing: putting tabs away and finding them again is free forever. Burrow Pro (one-time license, 14-day free trial) adds Organise for 100+ tabs, automatic cleanup, searching inside pages and deadline reminders. License keys are checked on your device, without contacting any server.
 
 Privacy: Burrow runs entirely in your browser. It has no servers, sends nothing over the internet, and contains no analytics or third-party tracking. Your preferences are stored in your own Chrome profile, archived pages stay on this device, and usage counts are kept in memory only and cleared when Chrome closes.
 
@@ -83,7 +87,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | Location | No | No | | No |
 | Web history | Yes (open tabs processed locally; titles and addresses of tabs the user archives, stored on the device) | No | Calculating tab scores; letting the user search and reopen archived tabs | No |
 | User activity | Yes: tab switch counts and time each tab was in front, held in memory only and cleared when Chrome closes. User can turn it off. | No | Calculating tab scores | No |
-| Website content | Only if the user opts in: visible text (up to 8,000 characters) of pages the user archives, stored on the device | No | Letting the user search archived pages by their content | No |
+| Website content | Only if the user opts in: visible text (up to 8,000 characters) of pages the user archives, stored on the device for "Full text" page types; for other types only a deadline date found in the text is kept | No | Letting the user search archived pages by their content and reminding them of deadlines | No |
 
 ### Data Use Certification
 - [x] Data is NOT sold to third parties
@@ -125,6 +129,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | 1.4.0 | 2026-11-21 | Organise becomes a cleanup: low-score tabs (including clutter inside existing groups) are proposed for the archive, keepers are grouped (categories, types, then same-site tabs); one confirmation and one undo for both. No new permissions. |
 | 1.5.0 | 2026-11-21 | "Save under" names for archived pages (tab list, Organise, rename existing pages), name chips in the Archive and name search in the address bar; new built-in types Courses & learning and Jobs & opportunities, coding-practice sites, title-based hints for unknown sites. Preferences v6, archive records v5. No new permissions. |
 | 1.6.0 | 2026-11-21 | "Archive this tab" button and Alt+Shift+A keyboard shortcut (manifest `commands`, no permission) for the tab in front; refuses pinned, "never save" and browser pages; undo via the banner. No new permissions. |
+| 1.7.0 | 2026-11-21 | Simpler product: no-setup cleanup card, plain-word verdicts (Put away / Not sure / Keep), find box first, "tabs put away / memory freed" counter, deadline reminders (dates found on pages read at archive time). Pricing: archiving and finding free forever; Organise, automatic cleanup, page reading and deadline reminders are Pro. Preferences v7, archive records v6. No new permissions. |
 
 ## Submission Checklist
 Done in the code:
@@ -137,11 +142,11 @@ Done in the code:
 - [x] MIT LICENSE file
 
 Owner to do before submitting:
-- [ ] Load `release/burrow-1.6.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
+- [ ] Load `release/burrow-1.7.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
 - [ ] Make the GitHub repository public (or host PRIVACY.md elsewhere and update the URL in this file and `src/sidepanel/DataControls.tsx`)
 - [ ] Capture 3 screenshots at 1280×800 (see Screenshot Notes)
 - [ ] Fill in Publisher Name and Contact Email; verify the email in the developer dashboard
 - [ ] Back up `.license/private-key.json` (password manager or encrypted drive) and never commit it
 - [ ] Create the store page (e.g. Lemon Squeezy), set `PURCHASE_URL` in `src/license/config.ts`, and plan how keys reach buyers (`npm run license -- issue <orderId>`)
 - [ ] Tick "Offers in-app purchases" in the dashboard
-- [ ] Upload `release/burrow-1.6.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit
+- [ ] Upload `release/burrow-1.7.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit

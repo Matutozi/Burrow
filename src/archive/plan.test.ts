@@ -50,9 +50,12 @@ describe('planArchive', () => {
     expect(p.readable).toEqual([stale.id]);
   });
 
-  it('only marks loaded "full" pages as readable', () => {
+  it('reads loaded pages that may be saved (for text or just a deadline), never "never save" ones', () => {
     const prefs = defaultPreferences();
     prefs.indexPolicy.other = 'title';
+    const t = tab();
+    expect(plan([t], prefs).readable).toEqual([t.id]);
+    prefs.indexPolicy.other = 'never';
     expect(plan([tab()], prefs).readable).toEqual([]);
     expect(plan([tab({ discarded: true })]).readable).toEqual([]);
   });

@@ -18,7 +18,6 @@ import {
   updateGroup,
   type OrganisePlan,
 } from '../groups/organise';
-import { mayArchive } from '../license/store';
 import { hostOf } from '../prefs/classify';
 import type { Preferences } from '../prefs/types';
 import { createScorer } from '../scoring/score';
@@ -30,7 +29,6 @@ interface Props {
   prefs: Preferences;
   notify: Notify;
   onDone: () => void;
-  onOpenLicense: () => void;
   /** "Save under" names already used, for suggestions. */
   savedLabels: string[];
 }
@@ -47,17 +45,15 @@ interface Proposal {
   plan: OrganisePlan;
   labels: Map<number, TabLabel>;
   total: number;
-  archiveAllowed: boolean;
 }
 
 /** Reads every open tab once and proposes what to keep, group and archive. The proposal stays still while the user edits it. */
 async function propose(prefs: Preferences): Promise<Proposal> {
   const now = Date.now();
-  const [tabs, groups, activity, archiveAllowed] = await Promise.all([
+  const [tabs, groups, activity] = await Promise.all([
     chrome.tabs.query({}),
     readGroups(),
     prefs.trackActivity ? readActivity() : Promise.resolve(EMPTY_ACTIVITY),
-    mayArchive(),
   ]);
   const scorer = createScorer(prefs);
   const labels = new Map<number, TabLabel>();
@@ -85,14 +81,13 @@ async function propose(prefs: Preferences): Promise<Proposal> {
     ];
   });
   return {
-    plan: planOrganise(entries, prefs.groupMinTabs, archiveAllowed),
+    plan: planOrganise(entries, prefs.groupMinTabs),
     labels,
     total: entries.length,
-    archiveAllowed,
   };
 }
 
-export function OrganiseView({ prefs, notify, onDone, onOpenLicense, savedLabels }: Props) {
+export function OrganiseView({ prefs, notify, onDone, savedLabels }: Props) {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [plan, setPlan] = useState<OrganisePlan | null>(null);
   const [error, setError] = useState(false);
@@ -158,13 +153,9 @@ export function OrganiseView({ prefs, notify, onDone, onOpenLicense, savedLabels
           chosen: true,
         });
         const result = await runArchive(archivePlan, prefs);
-        if (result.locked) {
-          keptOpen = plan.archive.length;
-        } else {
-          archived = result.archivedTabIds.length - result.closeFailedTabIds.length;
-          keptOpen = plan.archive.length - archived;
-          if (result.undo.saved.length > 0) undoArchive = () => undoIfUnchanged(result.undo, archivePlan.places);
-        }
+        archived = result.archivedTabIds.length - result.closeFailedTabIds.length;
+        keptOpen = plan.archive.length - archived;
+        if (result.undo.saved.length > 0) undoArchive = () => undoIfUnchanged(result.undo, archivePlan.places);
       }
 
       const grouping = toGroup.length > 0 ? await applyGroups(toGroup) : null;
@@ -245,28 +236,19 @@ export function OrganiseView({ prefs, notify, onDone, onOpenLicense, savedLabels
       <p class="muted">{GROUP_TEXT.intro}</p>
 
       <h2>{GROUP_TEXT.archiveHeading(plan.archive.length)}</h2>
-      {proposal.archiveAllowed ? (
-        <section class="org-group archive">
-          <p class="muted">
-            <small>{GROUP_TEXT.archiveHelp}</small>
-          </p>
-          <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
-          {plan.archive.length === 0 ? (
-            <p class="muted">
-              <small>{GROUP_TEXT.archiveEmpty}</small>
-            </p>
-          ) : (
-            <ul class="tabs">{plan.archive.map((id) => tabRow(id, ARCHIVE_KEY))}</ul>
-          )}
-        </section>
-      ) : (
-        <p class="error-text">
-          {GROUP_TEXT.archiveLocked}{' '}
-          <button type="button" class="link" onClick={onOpenLicense}>
-            {GROUP_TEXT.unlock}
-          </button>
+      <section class="org-group archive">
+        <p class="muted">
+          <small>{GROUP_TEXT.archiveHelp}</small>
         </p>
-      )}
+        <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
+        {plan.archive.length === 0 ? (
+          <p class="muted">
+            <small>{GROUP_TEXT.archiveEmpty}</small>
+          </p>
+        ) : (
+          <ul class="tabs">{plan.archive.map((id) => tabRow(id, ARCHIVE_KEY))}</ul>
+        )}
+      </section>
 
       <h2>{GROUP_TEXT.keepHeading(keepCount)}</h2>
       {plan.groups.map((g) => {

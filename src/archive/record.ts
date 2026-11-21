@@ -5,10 +5,11 @@
 import { hostOf } from '../prefs/classify';
 import { sanitizeGroup, type GroupInfo } from '../groups/info';
 import { CAPTURE_LIMITS, cleanText } from './capture';
+import { findDeadline } from './deadline';
 import { CONTENT_TYPES, type ContentType, type IndexPolicy } from '../prefs/types';
 
 /** Current record shape. Bump it and add a step in `migrateRecord` when the shape changes. */
-export const ARCHIVE_VERSION = 5;
+export const ARCHIVE_VERSION = 6;
 
 export const ARCHIVE_LIMITS = {
   maxTitleLength: 500,
@@ -38,6 +39,8 @@ export interface ArchiveRecord {
   group?: GroupInfo;
   /** The name the user saved it under when archiving, e.g. "School". (v5) */
   label?: string;
+  /** Application deadline found on the page (end of that day, epoch ms). Only the date is kept. (v6) */
+  deadline?: number;
 }
 
 /** Everything needed to archive one open tab. */
@@ -98,6 +101,8 @@ export async function buildRecord(input: ArchiveInput, policy: IndexPolicy, now:
     ...withCategory(input.category),
     ...withGroup(input.group),
     ...withLabel(input.label),
+    // Read from the title and any page text that was read. The text itself is kept only for "full".
+    ...withDeadline(findDeadline(`${input.title}\n${input.text ?? ''}`, now)),
   };
 }
 
@@ -110,6 +115,10 @@ function withText(raw: unknown): Pick<ArchiveRecord, 'saved' | 'text'> {
 /** Tidies a "Save under" name: trimmed, single spaces, capped. Empty means none. */
 export function cleanLabel(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ').slice(0, ARCHIVE_LIMITS.maxLabelLength) : '';
+}
+
+function withDeadline(raw: unknown): Pick<ArchiveRecord, 'deadline'> {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? { deadline: raw } : {};
 }
 
 function withLabel(raw: unknown): Pick<ArchiveRecord, 'label'> {
@@ -133,7 +142,7 @@ export function withoutText(record: ArchiveRecord): ArchiveRecord {
   return { ...rest, saved: 'title' };
 }
 
-/** Upgrades older stored shapes. v2 added optional `text`, v3 `category`, v4 `group`, v5 `label`: older records are already valid. */
+/** Upgrades older stored shapes. v2 added optional `text`, v3 `category`, v4 `group`, v5 `label`, v6 `deadline`: older records are already valid. */
 function migrateRecord(raw: Raw): Raw {
   return raw;
 }
@@ -161,6 +170,7 @@ export function sanitizeRecord(input: unknown, id: string): ArchiveRecord | null
     ...withCategory(raw.category),
     ...withGroup(raw.group),
     ...withLabel(raw.label),
+    ...withDeadline(raw.deadline),
   };
 }
 

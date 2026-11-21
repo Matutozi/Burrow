@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateKeyPair, issueKey } from '../../scripts/license.mjs';
 import type { StorageAreaLike } from '../prefs/storage';
-import { canArchive, entitlement, TRIAL_DAYS } from './entitlement';
+import { canUse, entitlement, PAID_FEATURES, TRIAL_DAYS } from './entitlement';
 import { verifyLicenseKey } from './key';
 import { LICENSE_PUBLIC_KEY } from './publicKey';
 import {
@@ -82,15 +82,18 @@ describe('license keys', () => {
 });
 
 describe('entitlement', () => {
-  it(`gives a ${TRIAL_DAYS}-day trial, then locks archiving until licensed`, () => {
+  it(`gives a ${TRIAL_DAYS}-day trial, then locks the paid features until licensed`, () => {
     const start = NOW;
     const day1 = entitlement(null, start, NOW + 1000);
     expect(day1).toEqual({ status: 'trial', daysLeft: TRIAL_DAYS, endsAt: NOW + TRIAL_DAYS * DAY });
     expect(entitlement(null, start, NOW + (TRIAL_DAYS - 0.5) * DAY)).toMatchObject({ status: 'trial', daysLeft: 1 });
     const over = entitlement(null, start, NOW + TRIAL_DAYS * DAY);
     expect(over.status).toBe('expired');
-    expect(canArchive(over)).toBe(false);
-    expect(canArchive(entitlement({ id: 'o', issuedAt: 1 }, start, NOW + 999 * DAY))).toBe(true);
+    for (const f of PAID_FEATURES) {
+      expect(canUse(over, f)).toBe(false);
+      expect(canUse(day1, f)).toBe(true);
+      expect(canUse(entitlement({ id: 'o', issuedAt: 1 }, start, NOW + 999 * DAY), f)).toBe(true);
+    }
   });
 });
 

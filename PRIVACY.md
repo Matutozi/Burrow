@@ -1,6 +1,6 @@
 # Burrow Privacy Policy
 
-_Last updated: 2026-11-21 (v1.5.0)_
+_Last updated: 2026-11-21 (v1.7.0)_
 
 Burrow is built so that your data never leaves your control.
 
@@ -11,7 +11,9 @@ Burrow is built so that your data never leaves your control.
 | Your preferences (persona, priorities, your own categories, topics, site lists, scoring settings) | Your Chrome profile (`chrome.storage.sync`) | Only through your own Chrome sync, to your own signed-in devices, if you have Chrome sync turned on. Burrow never receives it. |
 | Open tab titles, addresses and last-used times | Read on demand to calculate scores. Not stored. | No |
 | Archived pages: title, address, page type, your category and tab group name, the name you saved it under, score and the date you archived it | This device only (`chrome.storage.local`). Never synced. | No |
-| Page text of archived pages (only if you turn on page-text saving, and only for page types set to "Full text"): up to 8,000 characters of the page's readable text | This device only (`chrome.storage.local`), inside the archived page's record. Never synced. | No |
+| Page text of archived pages (only if you turn on reading pages, and only for page types set to "Full text"): up to 8,000 characters of the page's readable text | This device only (`chrome.storage.local`), inside the archived page's record. Never synced. | No |
+| Deadline date of an archived page (only if you turn on reading pages): just the date found next to words like "deadline" or "apply by". For page types not set to "Full text", the text is read to find the date and then discarded. | This device only, inside the archived page's record | No |
+| A count of tabs Burrow has put away, and the date of the first one, to show what you gained | This device only (`chrome.storage.local`) | No |
 | The last automatic cleanup (copies of the archived pages' records and their tab positions), kept so you can undo it | This device only (`chrome.storage.local`). Removed when you undo or dismiss it. | No |
 | Free-trial start date | Your Chrome profile (`chrome.storage.sync`) and this device (`chrome.storage.local`) | Only through your own Chrome sync |
 | License key, if you buy one. It contains only an order reference and issue date, no name or email. | Your Chrome profile (`chrome.storage.sync`) and this device, so it works on all your signed-in devices | Only through your own Chrome sync |

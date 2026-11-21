@@ -1,6 +1,6 @@
 {
   "name": "burrow",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Chrome extension that scores tabs, archives clutter, and keeps everything searchable.",
   "scripts": {
     "dev": "vite",

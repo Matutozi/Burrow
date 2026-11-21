@@ -35,6 +35,7 @@ export const LIMITS = {
   maxCategoryDomains: 100,
   maxCategoryKeywords: 100,
   groupMinTabs: { min: 1, max: 20 },
+  deadlineWarnDays: { min: 1, max: 60 },
 } as const;
 
 const PERSONAS: readonly Persona[] = ['student', 'developer', 'researcher', 'creator', 'general'];
@@ -156,6 +157,8 @@ function migrate(raw: Raw): Raw {
   if (version < 5) out = { ...out, useTabGroups: false };
   // v5 -> v6: new built-in types "learning" and "jobs". The per-type maps fill them from the
   // persona's defaults on their own; nothing else changes.
+  // v6 -> v7: deadline reminders, on by default (they only use dates on pages the user saved).
+  if (version < 7) out = { ...out, deadlineReminders: true };
   return out;
 }
 
@@ -187,6 +190,8 @@ export function sanitizePreferences(input: unknown): Preferences {
     customCategories: customCategories(raw.customCategories),
     useTabGroups: bool(raw.useTabGroups, base.useTabGroups),
     groupMinTabs: Math.round(clampNumber(raw.groupMinTabs, LIMITS.groupMinTabs, base.groupMinTabs)),
+    deadlineReminders: bool(raw.deadlineReminders, base.deadlineReminders),
+    deadlineWarnDays: Math.round(clampNumber(raw.deadlineWarnDays, LIMITS.deadlineWarnDays, base.deadlineWarnDays)),
     autoArchiveEveryMinutes: Math.round(
       clampNumber(raw.autoArchiveEveryMinutes, LIMITS.autoArchiveEveryMinutes, base.autoArchiveEveryMinutes),
     ),

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { labelsIn } from '../archive/record';
+import { canUse } from '../license/entitlement';
 import { loadPreferences, onPreferencesChanged, savePreferences } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
 import { ArchiveView, useArchive } from './Archive';
 import { LicenseView, useEntitlement } from './License';
 import { OrganiseView } from './Organise';
 import { requestGroupAccess } from '../groups/chromeGroups';
-import { GROUP_TEXT } from './format';
+import { GROUP_TEXT, WELCOME_TEXT } from './format';
 import { Onboarding } from './Onboarding';
 import { TabList } from './TabList';
 import { Toast, type ToastMessage } from './Toast';
@@ -40,7 +41,8 @@ export function App() {
 
   const toastView = <Toast msg={toast} onClose={() => setToast(null)} />;
 
-  if (!prefs.onboarded || editing) {
+  // Setup is optional: new users start on their tabs with a welcome card, and can personalise later.
+  if (editing) {
     return (
       <>
         <Onboarding
@@ -50,7 +52,7 @@ export function App() {
             setPrefs(await savePreferences({ ...next, onboarded: true }));
             setEditing(false);
           }}
-          onCancel={prefs.onboarded ? () => setEditing(false) : undefined}
+          onCancel={() => setEditing(false)}
         />
         {/* Stays visible after "Delete all data" sends the user back to setup, so undo is still offered. */}
         <div class="raise">{toastView}</div>
@@ -64,26 +66,30 @@ export function App() {
         <ArchiveView prefs={prefs} records={records} notify={setToast} onBack={() => setView('tabs')} />
       )}
       {view === 'organise' && (
-        <OrganiseView
-          prefs={prefs}
-          notify={setToast}
-          onDone={() => setView('tabs')}
-          onOpenLicense={() => setView('license')}
-          savedLabels={savedLabels}
-        />
+        <OrganiseView prefs={prefs} notify={setToast} onDone={() => setView('tabs')} savedLabels={savedLabels} />
       )}
       {view === 'license' && <LicenseView ent={entitlement} notify={setToast} onBack={() => setView('tabs')} />}
       {view === 'tabs' && (
         <TabList
           prefs={prefs}
-          archiveCount={records.length}
+          records={records}
+          onSavePrefs={async (next) => setPrefs(await savePreferences(next))}
           savedLabels={savedLabels}
           notify={setToast}
           entitlement={entitlement}
           onEditPreferences={() => setEditing(true)}
+          onDismissWelcome={() => {
+            savePreferences({ ...prefs, onboarded: true }).then(setPrefs, () =>
+              setToast({ text: WELCOME_TEXT.saveFailed, error: true }),
+            );
+          }}
           onOpenArchive={() => setView('archive')}
           onOpenLicense={() => setView('license')}
           onOrganise={() => {
+            if (entitlement && !canUse(entitlement, 'organise')) {
+              setView('license');
+              return;
+            }
             // Must run inside the click. Chrome grants tabGroups without a prompt.
             requestGroupAccess().then(
               (granted) => (granted ? setView('organise') : setToast({ text: GROUP_TEXT.needAccess, error: true })),

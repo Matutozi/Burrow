@@ -86,7 +86,7 @@ export interface CustomCategory {
 }
 
 /** Current schema version. Bump it and add a migration in validate.ts when the shape changes. */
-export const PREFERENCES_VERSION = 6;
+export const PREFERENCES_VERSION = 7;
 
 export interface Preferences {
   version: typeof PREFERENCES_VERSION;
@@ -130,6 +130,10 @@ export interface Preferences {
   useTabGroups: boolean;
   /** "Organise tabs" only proposes groups with at least this many tabs. (v5) */
   groupMinTabs: number;
+  /** Show "Closing soon" for saved pages whose deadline is near. (v7) */
+  deadlineReminders: boolean;
+  /** How many days before a deadline it shows up. (v7) */
+  deadlineWarnDays: number;
   /** Automatic mode: minutes between checks. (v3) */
   autoArchiveEveryMinutes: number;
   /** Automatic mode: only tabs untouched for at least this many hours are archived. (v3) */

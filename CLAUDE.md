@@ -40,8 +40,11 @@ These rules are non-negotiable. Every change must follow them.
 ## 3a. Licensing
 - License keys are verified **offline** (ECDSA P-256 signature, public key in `src/license/publicKey.ts`).
   Never add an online license check without the same explicit, documented decision as any network feature.
-- Only *creating* new archive entries is paid (`runArchive` is the single enforcement point). Never gate
-  reopening, searching, export, import or delete: users must always reach their own data.
+- The core job is free forever: archiving by hand (tab list, "Archive this tab", the shortcut), Save under
+  names, reopening, searching (including text already saved), export, import and delete. Never gate these.
+- Only the power features in `PAID_FEATURES` (`entitlement.ts`) are paid after the trial: `organise`,
+  `autoArchive`, `pageText`, `deadlines`. Check them with `canUse`/`mayUse` where the feature starts
+  (Organise entry, the auto-archive alarm, page reading in `runArchive`, the Closing soon section).
 - The trial length is a product constant (`TRIAL_DAYS`), not a preference.
 - The private signing key lives only in git-ignored `.license/`. `npm run package` refuses builds containing key material.
 
@@ -81,4 +84,6 @@ These rules are non-negotiable. Every change must follow them.
 - `scripts/`: dependency-free icon drawing (`icons.mjs`), store packaging with pre-flight checks (`package.mjs`),
   seller-side license tool (`license.mjs`)
 - `public/icons/`: generated icons, committed
-- `src/sidepanel/`: Preact UI (setup wizard, tab list, archive) and all user-facing wording (`format.ts`)
+- `src/archive/deadline.ts`: offline deadline detection; `src/archive/stats.ts`: the "tabs put away" counter
+- `src/sidepanel/`: Preact UI (optional setup wizard, tab list with find box and cleanup card, archive,
+  Organise, license) and all user-facing wording (`format.ts`)

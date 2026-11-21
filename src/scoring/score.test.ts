@@ -227,3 +227,23 @@ describe('tab groups', () => {
     expect(r.category).toBeNull();
   });
 });
+
+describe('verdict', () => {
+  it('puts tabs in plain-word bands derived from the threshold', () => {
+    const scorer = createScorer({ ...defaultPreferences(), archiveThreshold: 30 });
+    const r = (score: number, prot = false) => ({
+      score,
+      contentType: 'other' as const,
+      category: null,
+      group: null,
+      indexPolicy: 'title' as const,
+      protected: prot,
+      reasons: [],
+    });
+    expect(scorer.verdict(r(29))).toBe('putAway');
+    expect(scorer.verdict(r(30))).toBe('notSure');
+    expect(scorer.verdict(r(64))).toBe('notSure');
+    expect(scorer.verdict(r(65))).toBe('keep');
+    expect(scorer.verdict(r(5, true))).toBe('keep');
+  });
+});

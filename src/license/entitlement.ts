@@ -1,9 +1,10 @@
 /**
  * What the user may do, from their license and trial. Pure.
  *
- * Paid after the trial: archiving new tabs (by hand or automatically), and with it page-text saving.
- * Always free: scores, reopening, searching (side panel and address bar), export, import and delete.
- * People never lose access to their own data.
+ * Free forever: the core job. Archiving by hand (tab list, "Archive this tab", the shortcut),
+ * Save under names, reopening, searching (side panel and address bar, including text already saved),
+ * export, import and delete.
+ * Paid after the trial: the power features below.
  */
 import type { LicenseInfo } from './key';
 
@@ -23,6 +24,10 @@ export function entitlement(license: LicenseInfo | null, trialStartedAt: number,
   return { status: 'expired', endedAt: endsAt };
 }
 
-export function canArchive(e: Entitlement): boolean {
+export const PAID_FEATURES = ['autoArchive', 'organise', 'pageText', 'deadlines'] as const;
+export type PaidFeature = (typeof PAID_FEATURES)[number];
+
+/** Every paid feature is open during the trial and with a license. */
+export function canUse(e: Entitlement, _feature: PaidFeature): boolean {
   return e.status !== 'expired';
 }

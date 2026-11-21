@@ -5,11 +5,12 @@
 import { readActivity } from '../activity/store';
 import { EMPTY_ACTIVITY } from '../activity/tracker';
 import { readGroups, restoreTabGroup } from '../groups/chromeGroups';
-import { mayArchive } from '../license/store';
+import { mayUse } from '../license/store';
 import type { Preferences } from '../prefs/types';
 import { CAPTURE_LIMITS, CAPTURE_PERMISSIONS, captureTexts, extractPageText } from './capture';
 import { createScorer } from '../scoring/score';
 import { planArchive, type ArchivePlan, type TabPlace, type TabPlaces } from './plan';
+import { recordPutAway } from './stats';
 import type { ArchiveRecord } from './record';
 import { archiveTabs, listArchive, reconcileUndo, undoArchive, type ArchiveResult, type ArchiveUndo } from './store';
 
@@ -64,23 +65,21 @@ export async function readPageText(tabId: number): Promise<unknown> {
   return first?.result ?? null;
 }
 
-export type RunResult = { locked: true } | (ArchiveResult & { locked: false });
-
 /**
- * The one path every archive takes, by hand or automatic. Checks the license first (archiving new
- * tabs is the paid feature), then captures page text where allowed, then archives (save first,
- * close after). Nothing is read or closed when locked.
+ * The one path every archive takes, by hand or automatic: captures page text where allowed (a paid
+ * feature, skipped quietly after the trial), then archives (save first, close after).
  */
-export async function runArchive(plan: ArchivePlan, prefs: Preferences): Promise<RunResult> {
-  if (!(await mayArchive())) return { locked: true };
-  if (prefs.captureText && plan.readable.length > 0 && (await hasCaptureAccess())) {
+export async function runArchive(plan: ArchivePlan, prefs: Preferences): Promise<ArchiveResult> {
+  if (prefs.captureText && plan.readable.length > 0 && (await mayUse('pageText')) && (await hasCaptureAccess())) {
     const texts = await captureTexts(plan.readable, readPageText);
     for (const req of plan.requests) {
       const text = texts.get(req.tabId);
       if (text) req.input.text = text;
     }
   }
-  return { ...(await archiveTabs(plan.requests, { closeTabs, now: Date.now() })), locked: false };
+  const result = await archiveTabs(plan.requests, { closeTabs, now: Date.now() });
+  await recordPutAway(result.archivedTabIds.length - result.closeFailedTabIds.length, chrome.storage.local);
+  return result;
 }
 
 /**
@@ -89,11 +88,14 @@ export async function runArchive(plan: ArchivePlan, prefs: Preferences): Promise
  */
 export async function undoIfUnchanged(undo: ArchiveUndo, places: TabPlaces): Promise<number> {
   const still = reconcileUndo(undo, await listArchive());
-  if (still.saved.length > 0) await undoArchive(still, pageOpener(places));
+  if (still.saved.length > 0) {
+    await undoArchive(still, pageOpener(places));
+    await recordPutAway(-still.saved.length, chrome.storage.local);
+  }
   return still.saved.length;
 }
 
-export type NotArchivedReason = 'pinned' | 'notWebPage' | 'sensitive' | 'locked' | 'gone';
+export type NotArchivedReason = 'pinned' | 'notWebPage' | 'sensitive' | 'gone';
 
 export type ArchiveNowResult =
   | { ok: true; undo: ArchiveUndo; places: TabPlaces; record: ArchiveRecord }
@@ -101,7 +103,7 @@ export type ArchiveNowResult =
 
 /**
  * Archives one tab because the user asked to ("Archive this tab" or the keyboard shortcut). It is
- * re-read first, then goes through the same path as every archive: license check, save, then close.
+ * re-read first, then goes through the same path as every archive: save, then close.
  */
 export async function archiveTabNow(tabId: number, prefs: Preferences, label?: string): Promise<ArchiveNowResult> {
   const tab = await chrome.tabs.get(tabId).catch(() => null);
@@ -121,7 +123,6 @@ export async function archiveTabNow(tabId: number, prefs: Preferences, label?: s
     explicit: true,
   });
   const result = await runArchive(plan, prefs);
-  if (result.locked) return { ok: false, reason: 'locked' };
   const skipped = result.skipped[0];
   if (skipped) return { ok: false, reason: skipped.reason };
   const record = result.undo.saved[0];

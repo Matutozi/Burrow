@@ -91,6 +91,7 @@ export function LicenseView({ ent, notify, onBack }: { ent: Entitlement | null; 
       {ent?.status === 'trial' && <p>{LICENSE_TEXT.trial(ent.daysLeft, ent.endsAt)}</p>}
       {ent?.status === 'expired' && <p class="error-text">{LICENSE_TEXT.expired(ent.endedAt)}</p>}
       {ent?.status === 'licensed' && <p>{LICENSE_TEXT.licensed(ent.license.id, ent.license.issuedAt)}</p>}
+      <p>{LICENSE_TEXT.paid}</p>
       <p class="muted">{LICENSE_TEXT.alwaysFree}</p>
 
       {ent?.status !== 'licensed' && (

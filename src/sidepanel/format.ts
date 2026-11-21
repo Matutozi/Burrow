@@ -90,9 +90,9 @@ export const ARCHIVE_TEXT = {
   empty: 'Nothing archived yet. Tabs you archive appear here, ready to reopen.',
   noMatches: 'No archived pages match.',
   fullText: 'full text',
-  captureLabel: 'Save the text of "Full text" pages so I can search inside them',
+  captureLabel: 'Read pages when I put them away (search inside "Full text" pages, and spot deadlines)',
   captureHelp:
-    'Chrome will ask to let Burrow read pages. Burrow reads a page only when you archive it, never sends it anywhere, and skips pages with a password box.',
+    'Chrome will ask to let Burrow read pages. Burrow reads a page only when you archive it, never sends it anywhere, and skips pages with a password box. For pages not set to "Full text", only a deadline date is kept, never the text.',
   captureDenied: 'Page access was not granted, so Burrow saves titles only.',
   captureMissing: 'Page access was removed in Chrome settings. Turn this on again to save page text.',
 };
@@ -150,9 +150,10 @@ export const LICENSE_TEXT = {
   trial: (days: number, endsAt: number) =>
     `Free trial: ${plural(days, 'day')} left (until ${formatDate(endsAt)}). Everything works during the trial.`,
   expired: (endedAt: number) =>
-    `Your free trial ended on ${formatDate(endedAt)}. Archiving new tabs and automatic cleanup are paused until you enter a license key.`,
+    `Your free trial ended on ${formatDate(endedAt)}. Organise, automatic cleanup, page-text saving and deadline reminders are paused until you enter a license key.`,
   alwaysFree:
-    'Always free, with or without a license: scores, reopening and searching your archive (including from the address bar), export, import and delete. Your archived pages are never locked away.',
+    'Always free: putting tabs away (one by one, all at once, "Archive this tab" and the shortcut), Save under names, reopening and searching everything you saved (including from the address bar), export, import and delete.',
+  paid: 'With a license: Organise (clean up 100+ tabs with a preview), automatic cleanup, saving page text to search inside pages, and deadline reminders.',
   licensed: (id: string, issuedAt: number) =>
     `Licensed (${id}, issued ${formatDate(issuedAt)}). Thank you for supporting Burrow!`,
   buy: 'Buy a license',
@@ -167,7 +168,6 @@ export const LICENSE_TEXT = {
   removed: 'License removed.',
   restored: 'License restored.',
   offline: 'Keys are checked on this device. Burrow never contacts a server to verify them.',
-  lockedToast: 'Your free trial has ended. Enter a license key to keep archiving.',
   back: 'Back',
 };
 
@@ -182,11 +182,9 @@ export const GROUP_TEXT = {
   archiveHeading: (n: number) => `Archive (${n} low-score ${n === 1 ? 'tab' : 'tabs'})`,
   archiveHelp:
     'Saved and searchable, then closed to free memory. Reopen them any time from the Archive or the address bar.',
-  archiveLocked: 'Your free trial has ended, so Organise only groups tabs. Enter a license key to archive too.',
   archiveEmpty: 'Nothing proposed for archiving. Move tabs here with the menu beside them.',
   archiveOption: 'Archive',
   keepInGroup: 'Keep in its group',
-  unlock: 'Unlock',
   archiveGroup: (n: number) => `Archive group (${n})`,
   leftAsIs: (n: number) =>
     `${plural(n, 'tab')} left as ${n === 1 ? 'it is' : 'they are'} (pinned or already in a group).`,
@@ -264,7 +262,66 @@ export const CURRENT_TEXT = {
     pinned: 'Pinned tabs are not archived. Unpin it first.',
     sensitive: 'This kind of page is set to "never save", so it stays open.',
     notWebPage: "Browser pages can't be archived.",
-    locked: 'Your free trial has ended. Enter a license key to keep archiving.',
     gone: 'That tab was already closed.',
-  } as Record<'pinned' | 'sensitive' | 'notWebPage' | 'locked' | 'gone', string>,
+  } as Record<'pinned' | 'sensitive' | 'notWebPage' | 'gone', string>,
+};
+
+/** Plain words instead of scores. */
+export const VERDICT_TEXT = {
+  putAway: 'Put away',
+  notSure: 'Not sure',
+  keep: 'Keep',
+  scoreTitle: (score: number) => `score ${score}`,
+  putAwayHeading: (n: number) => `Put away (${n})`,
+  notSureHeading: (n: number) => `Not sure (${n})`,
+  notSureHelp: 'Not used much lately. Put any of them away with its Archive button, or leave them for now.',
+  keepHeading: (n: number) => `Keep (${n})`,
+};
+
+export const WELCOME_TEXT = {
+  hello: 'Welcome to Burrow. Put finished tabs away without losing them: everything stays searchable, and nothing leaves this computer.',
+  status: (total: number, finished: number) =>
+    finished > 0
+      ? `You have ${plural(total, 'open tab')}. ${finished} look finished.`
+      : `You have ${plural(total, 'open tab')}. Nothing looks finished right now.`,
+  preview: 'Put them away… (preview first)',
+  putAwayAll: (n: number) => `Put all ${n} away now`,
+  optional: 'Works out of the box. Want it tuned to how you work?',
+  personalise: 'Personalise (2 min)',
+  dismiss: 'Not now',
+  saveFailed: 'Could not save. Try again.',
+};
+
+export const FIND_TEXT = {
+  label: 'Find anything you put away',
+  placeholder: (n: number) => (n > 0 ? `Find anything you put away (${n} saved)…` : 'Find anything you put away…'),
+  chipsLabel: 'Your saved names',
+  count: (n: number) => (n === 0 ? 'Nothing found.' : `${plural(n, 'page')} found. Click to open; it stays saved.`),
+  openArchive: 'Open the full archive',
+  openFailed: 'Could not open that page.',
+  pageTextTip: 'Only titles and addresses are searched. Want to search inside pages and spot deadlines too?',
+  pageTextButton: 'Turn on reading pages',
+  pageTextOn: 'Done. Pages you put away from now on can be searched by what they say.',
+  pageTextDenied: 'Chrome did not allow reading pages, so Burrow keeps searching titles and addresses.',
+};
+
+export function formatMemory(mb: number): string {
+  return mb >= 1024 ? `${(mb / 1024).toFixed(mb >= 10240 ? 0 : 1)} GB` : `${Math.round(mb)} MB`;
+}
+
+export const GAINS_TEXT = {
+  line: (tabs: number, since: string, mb: number) =>
+    `Burrow has put away ${plural(tabs, 'tab')} since ${since} · about ${formatMemory(mb)} of memory freed.`,
+};
+
+export const DEADLINE_TEXT = {
+  heading: (n: number) => `Closing soon (${n})`,
+  inDays: (d: number) => (d === 0 ? 'Today' : d === 1 ? '1 day' : `${d} days`),
+  closes: (date: string) => `Closes ${date}`,
+  closed: (date: string) => `Closed ${date}`,
+  locked: (n: number) => `${plural(n, 'saved page')} ${n === 1 ? 'has a deadline' : 'have deadlines'} coming up.`,
+  unlock: 'Unlock reminders',
+  openFailed: 'Could not open that page.',
+  settingLabel: 'Remind me about deadlines on pages I put away',
+  daysLabel: 'Days before the deadline',
 };

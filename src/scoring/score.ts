@@ -52,9 +52,17 @@ export interface TabScore {
   reasons: ScoreReason[];
 }
 
+/** The plain-words answer shown to people instead of a number. */
+export type Verdict = 'putAway' | 'notSure' | 'keep';
+
 export interface Scorer {
   score(signals: TabSignals, now: number): TabScore;
   isArchiveCandidate(result: TabScore): boolean;
+  /**
+   * Put away: below the user's threshold. Not sure: the lower half of the rest. Keep: the upper half,
+   * or protected. Derived from the user's threshold, so there is no extra number to tune.
+   */
+  verdict(result: TabScore): Verdict;
 }
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -179,9 +187,13 @@ export function createScorer(prefs: Preferences): Scorer {
     };
   }
 
+  const isArchiveCandidate = (result: TabScore) => !result.protected && result.score < prefs.archiveThreshold;
+  const notSureBelow = prefs.archiveThreshold + (100 - prefs.archiveThreshold) / 2;
   return {
     score,
-    isArchiveCandidate: (result) => !result.protected && result.score < prefs.archiveThreshold,
+    isArchiveCandidate,
+    verdict: (result) =>
+      isArchiveCandidate(result) ? 'putAway' : !result.protected && result.score < notSureBelow ? 'notSure' : 'keep',
   };
 }
 

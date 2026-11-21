@@ -14,7 +14,7 @@ import { INDEX_OPTIONS, Invalid, parseDomains, PRIORITY_OPTIONS, Segmented, spli
 import { hasCaptureAccess } from '../archive/chromeApi';
 import { hasAlarmAccess, releaseCaptureAccess, requestAlarmAccess, requestCaptureAccess } from './chromeTabs';
 import { hasGroupAccess, requestGroupAccess } from '../groups/chromeGroups';
-import { ARCHIVE_TEXT, AUTO_TEXT, GROUP_TEXT } from './format';
+import { ARCHIVE_TEXT, AUTO_TEXT, DEADLINE_TEXT, GROUP_TEXT } from './format';
 
 interface Props {
   initial: Preferences;
@@ -41,8 +41,6 @@ const AUTO_FIELDS = [
   { key: 'autoArchiveAfterHours', label: 'Only tabs untouched for (hours)', limits: LIMITS.autoArchiveAfterHours },
   { key: 'autoArchiveMaxPerRun', label: 'At most this many tabs per check', limits: LIMITS.autoArchiveMaxPerRun },
 ] as const satisfies readonly { key: keyof Preferences; label: string; limits: { min: number; max: number } }[];
-
-
 
 export function Onboarding({ initial, onDone, onCancel }: Props) {
   const [step, setStep] = useState(0);
@@ -232,9 +230,7 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
               value={topicsText}
               onInput={(e) => setTopicsText(e.currentTarget.value)}
             />
-            <small class="muted">
-              Tabs that mention these get a boost. Up to {LIMITS.maxTopics} topics.
-            </small>
+            <small class="muted">Tabs that mention these get a boost. Up to {LIMITS.maxTopics} topics.</small>
           </label>
           <label class="field">
             Always important sites
@@ -337,6 +333,32 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
           </label>
           <small class="muted">{ARCHIVE_TEXT.captureHelp}</small>
           {captureDenied && <p class="error-text">{ARCHIVE_TEXT.captureDenied}</p>}
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={prefs.deadlineReminders}
+              onChange={(e) => update({ deadlineReminders: e.currentTarget.checked })}
+            />
+            {DEADLINE_TEXT.settingLabel}
+          </label>
+          {prefs.deadlineReminders && (
+            <label class="field inline">
+              {DEADLINE_TEXT.daysLabel}
+              <input
+                type="number"
+                min={LIMITS.deadlineWarnDays.min}
+                max={LIMITS.deadlineWarnDays.max}
+                value={prefs.deadlineWarnDays}
+                onChange={(e) => {
+                  const n = Math.round(Number(e.currentTarget.value));
+                  const { min, max } = LIMITS.deadlineWarnDays;
+                  update({
+                    deadlineWarnDays: Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : prefs.deadlineWarnDays,
+                  });
+                }}
+              />
+            </label>
+          )}
           {prefs.captureText && captureAccess === false && !captureDenied && (
             <p class="error-text">{ARCHIVE_TEXT.captureMissing}</p>
           )}
@@ -348,7 +370,10 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
           <h2>When is a tab clutter?</h2>
           <label class="field">
             A tab goes stale after
-            <select value={prefs.staleAfterDays} onChange={(e) => update({ staleAfterDays: Number(e.currentTarget.value) })}>
+            <select
+              value={prefs.staleAfterDays}
+              onChange={(e) => update({ staleAfterDays: Number(e.currentTarget.value) })}
+            >
               {[...new Set([1, 3, 7, 14, 30, prefs.staleAfterDays])]
                 .sort((a, b) => a - b)
                 .map((d) => (
@@ -382,7 +407,9 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
             />
             <small class="muted">Archived tabs are saved, never deleted, and you can restore them anytime.</small>
             {autoDenied && <p class="error-text">{AUTO_TEXT.denied}</p>}
-            {prefs.mode === 'auto' && alarmAccess === false && !autoDenied && <p class="error-text">{AUTO_TEXT.missing}</p>}
+            {prefs.mode === 'auto' && alarmAccess === false && !autoDenied && (
+              <p class="error-text">{AUTO_TEXT.missing}</p>
+            )}
           </fieldset>
           {prefs.mode === 'auto' && (
             <fieldset class="field">
@@ -397,7 +424,9 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
                     value={prefs[key]}
                     onChange={(e) => {
                       const n = Math.round(Number(e.currentTarget.value));
-                      update({ [key]: Number.isFinite(n) ? Math.min(limits.max, Math.max(limits.min, n)) : prefs[key] });
+                      update({
+                        [key]: Number.isFinite(n) ? Math.min(limits.max, Math.max(limits.min, n)) : prefs[key],
+                      });
                     }}
                   />
                 </label>
@@ -406,7 +435,11 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
             </fieldset>
           )}
           <label class="check">
-            <input type="checkbox" checked={prefs.trackActivity} onChange={(e) => update({ trackActivity: e.currentTarget.checked })} />
+            <input
+              type="checkbox"
+              checked={prefs.trackActivity}
+              onChange={(e) => update({ trackActivity: e.currentTarget.checked })}
+            />
             Use how often and how long I use each tab to score it
           </label>
           <small class="muted">
@@ -454,7 +487,11 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
       )}
 
       <footer class="actions">
-        {saveError && <span class="error-text" role="alert">Couldn't save. Try again.</span>}
+        {saveError && (
+          <span class="error-text" role="alert">
+            Couldn't save. Try again.
+          </span>
+        )}
         {step > 0 ? (
           <button type="button" class="secondary" onClick={() => setStep(step - 1)}>
             Back
@@ -466,7 +503,12 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
             </button>
           )
         )}
-        <button type="button" class="primary" disabled={saving} onClick={() => (last ? void finish() : setStep(step + 1))}>
+        <button
+          type="button"
+          class="primary"
+          disabled={saving}
+          onClick={() => (last ? void finish() : setStep(step + 1))}
+        >
           {last ? (saving ? 'Saving…' : 'Finish') : 'Next'}
         </button>
       </footer>

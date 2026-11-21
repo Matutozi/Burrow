@@ -1,10 +1,21 @@
 # Burrow
 
-**Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
-told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
+**Declare tab bankruptcy without losing anything.** Burrow spots the tabs you're done with, puts them
+away (closed, freeing memory), and lets you find any of them again in seconds, by its title, its site,
+a name you gave it, or what the page said. No setup needed, and nothing leaves your computer.
 
-> Status: 1.6.0, ready for Chrome Web Store submission. See the checklist in
+> Status: 1.7.0, ready for Chrome Web Store submission. See the checklist in
 > [CHROMEWEBSTORE.md](CHROMEWEBSTORE.md#submission-checklist).
+
+## What you see
+- **No setup.** Open Burrow and a card says e.g. *"You have 124 open tabs. 80 look finished."* with
+  **Put them away… (preview first)** and **Put all 80 away now**. Personalising is optional.
+- **Find first.** The top of the panel is a search box for everything you put away, with your Save under
+  names as one-click chips. Results open like bookmarks and stay saved.
+- **Plain words.** Each tab says **Put away**, **Not sure** or **Keep** (the score is a detail).
+- **What you gained.** *"Burrow has put away 214 tabs since 3 Nov · about 10 GB of memory freed."*
+- **Closing soon.** Saved internships, grants and applications with a deadline in the next 7 days
+  (configurable) are listed at the top, so putting a tab away never means missing it.
 
 ## Features (so far)
 - **Setup wizard** that learns your preferences: who you are, how much each kind of page
@@ -67,10 +78,12 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   stay on this device. Activity stays in memory and is cleared when Chrome closes.
 
 ## Pricing
-Burrow is free to try for 14 days, with everything unlocked. After that, archiving new tabs (by hand
-or automatically, including page-text saving) needs a one-time license. Your data is never locked:
-scores, reopening and searching your archive (including from the address bar), export, import and
-delete stay free forever. License keys are checked on your device; Burrow never contacts a server.
+**Free forever:** putting tabs away (one by one, all at once, "Archive this tab", Alt+Shift+A), Save under
+names, finding and reopening everything you saved (side panel and address bar), export, import, delete.
+
+**Burrow Pro (one-time license, 14-day free trial):** Organise (clean up 100+ tabs with a preview),
+automatic cleanup, reading pages to search inside them, and deadline reminders. License keys are checked
+on your device; Burrow never contacts a server.
 
 ## How scoring works
 ```

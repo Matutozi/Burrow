@@ -5,7 +5,7 @@
  * trusted: the key is re-verified on every read and the trial start is validated.
  */
 import type { StorageAreaLike } from '../prefs/storage';
-import { canArchive, entitlement, type Entitlement } from './entitlement';
+import { canUse, entitlement, type Entitlement, type PaidFeature } from './entitlement';
 import { MAX_KEY_LENGTH, normalizeKey, verifyLicenseKey, type LicenseInfo } from './key';
 import { LICENSE_PUBLIC_KEY } from './publicKey';
 
@@ -101,8 +101,12 @@ export async function currentEntitlement(
   return entitlement(license, start, now);
 }
 
-export async function mayArchive(areas: LicenseAreas = chromeAreas(), now: number = Date.now()): Promise<boolean> {
-  return canArchive(await currentEntitlement(areas, now));
+export async function mayUse(
+  feature: PaidFeature,
+  areas: LicenseAreas = chromeAreas(),
+  now: number = Date.now(),
+): Promise<boolean> {
+  return canUse(await currentEntitlement(areas, now), feature);
 }
 
 /** Calls back when the license or trial changes in any context. */

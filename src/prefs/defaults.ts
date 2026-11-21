@@ -112,6 +112,8 @@ export function defaultPreferences(persona: Persona = 'general'): Preferences {
     // Off until the user turns it on and Chrome grants the tabGroups permission.
     useTabGroups: false,
     groupMinTabs: 2,
+    deadlineReminders: true,
+    deadlineWarnDays: 7,
     autoArchiveEveryMinutes: 60,
     autoArchiveAfterHours: 12,
     autoArchiveMaxPerRun: 20,

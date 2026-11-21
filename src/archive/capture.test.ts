@@ -104,4 +104,12 @@ describe('records with page text', () => {
     expect(createArchiveSearch(r ? [r] : [])('courses')).toHaveLength(1);
     expect(sanitizeRecord({ url: 'https://a.com', group: { title: 5 } }, 'x')).not.toHaveProperty('group');
   });
+
+  it('keeps only the deadline date from text that is not saved', async () => {
+    const text = 'Applications close on 30 November 2099. Lots of personal details here.';
+    const titleOnly = await buildRecord({ ...input, text }, 'title', 1);
+    expect(titleOnly?.deadline).toBe(Date.UTC(2099, 10, 30, 23, 59, 59));
+    expect(titleOnly).not.toHaveProperty('text');
+    expect(sanitizeRecord({ url: 'https://a.com', deadline: 'soon' }, 'x')).not.toHaveProperty('deadline');
+  });
 });

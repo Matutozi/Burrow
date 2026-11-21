@@ -196,3 +196,35 @@ kbd { font: 11px ui-monospace, monospace; padding: 0 4px; border: 1px solid var(
 .current .section-head h2 { margin: 8px 0 4px; }
 .current-title { display: flex; gap: 8px; align-items: center; min-width: 0; margin: 2px 0 4px; }
 .current-title .title { min-width: 0; }
+
+/* Plain-word verdicts */
+.verdict {
+  flex: 0 0 auto; min-width: 58px; height: 20px; padding: 0 7px; display: inline-grid; place-items: center;
+  border-radius: 10px; font-weight: 600; font-size: 11px; border: 1.5px solid currentColor; white-space: nowrap;
+}
+.verdict.putAway { color: var(--low); }
+.verdict.notSure { color: var(--mid); }
+.verdict.keep { color: var(--high); }
+details.keep > summary { cursor: pointer; list-style: revert; }
+details.keep > summary h2 { display: inline; }
+
+/* Welcome / cleanup card */
+.hero { margin: 10px 0 4px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); }
+.hero.first { border: 1px solid var(--accent); }
+.hero .welcome { margin: 0 0 6px; }
+.hero-line { font-size: 15px; font-weight: 600; margin: 0 0 8px; }
+.hero .buttons { margin-bottom: 4px; }
+
+/* Find first */
+.find { margin: 10px 0 4px; }
+.find-box { font-size: 14px; padding: 9px 12px !important; border-radius: 20px !important; }
+.find .chips { margin: 6px 0 0; }
+.find-results .tab { padding: 6px 4px; }
+.tip { font-size: 12px; margin-top: 10px; padding: 8px 10px; border-radius: var(--radius); background: var(--surface); }
+.gains { font-size: 12px; color: var(--high); margin: 0 0 8px; }
+
+/* Closing soon */
+.closing { border: 1px solid var(--mid); border-radius: var(--radius); padding: 2px 8px 6px; margin: 10px 0; }
+.closing h2 { margin: 8px 0 4px; color: var(--mid); }
+.closing .when { flex: 0 0 52px; font-weight: 700; font-size: 12px; color: var(--mid); }
+.deadline-tag { font-size: 10px; padding: 0 6px; margin-right: 4px; border-radius: 8px; border: 1px solid var(--mid); color: var(--mid); }

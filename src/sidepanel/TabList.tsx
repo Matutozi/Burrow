@@ -3,26 +3,44 @@ import { onActivityChanged, readActivity } from '../activity/store';
 import { EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
 import { archiveTabNow, runArchive, undoIfUnchanged } from '../archive/chromeApi';
 import { planArchive, signalsOf } from '../archive/plan';
-import { archiveBlocker, cleanLabel } from '../archive/record';
-import { canArchive, type Entitlement } from '../license/entitlement';
+import { archiveBlocker, cleanLabel, type ArchiveRecord } from '../archive/record';
+import { canUse as canUseFeature, type Entitlement, type PaidFeature } from '../license/entitlement';
+
+/** Paid features are available while the license state is still loading, so the UI doesn't flash. */
+const canUse = (e: Entitlement | null, f: PaidFeature) => e === null || canUseFeature(e, f);
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
-import { createScorer, type TabScore } from '../scoring/score';
+import { createScorer, type TabScore, type Verdict } from '../scoring/score';
 import { AutoArchiveBanner } from './AutoArchiveBanner';
-import { ARCHIVE_TEXT, CURRENT_TEXT, formatArchiveResult, formatReasons, GROUP_TEXT, LICENSE_TEXT } from './format';
+import {
+  ARCHIVE_TEXT,
+  CURRENT_TEXT,
+  formatArchiveResult,
+  formatReasons,
+  GROUP_TEXT,
+  VERDICT_TEXT,
+  WELCOME_TEXT,
+} from './format';
 import { useGroups } from './groups';
 import { LabelInput } from './LabelInput';
+import { QuickFind } from './QuickFind';
+import { Gains } from './Gains';
+import { ClosingSoon } from './ClosingSoon';
 import { LicenseChip } from './License';
 import type { Notify } from './Toast';
 
 interface Props {
   prefs: Preferences;
-  archiveCount: number;
+  /** Everything put away, for the search box at the top. */
+  records: ArchiveRecord[];
+  onSavePrefs: (prefs: Preferences) => Promise<void>;
   notify: Notify;
   onEditPreferences: () => void;
   onOpenArchive: () => void;
   onOpenLicense: () => void;
   /** Opens "Organise tabs". Called from the click, so it can ask Chrome for tab group access. */
   onOrganise: () => void;
+  /** Marks the welcome as seen (sets prefs.onboarded). */
+  onDismissWelcome: () => void;
   entitlement: Entitlement | null;
   /** "Save under" names already used in the archive, for suggestions. */
   savedLabels: string[];
@@ -31,6 +49,7 @@ interface Props {
 interface ScoredTab {
   tab: chrome.tabs.Tab;
   result: TabScore;
+  verdict: Verdict;
 }
 
 const REFRESH_MS = 60_000;
@@ -117,10 +136,12 @@ export function useActivity(enabled: boolean): ActivityState {
 }
 
 /** Colour bands derived from the user's threshold: clutter, the lower half of the rest, the upper half. */
-function scoreClass(score: number, threshold: number): string {
-  if (score < threshold) return 'low';
-  if (score < threshold + (100 - threshold) / 2) return 'mid';
-  return 'high';
+function VerdictChip({ verdict, score }: { verdict: Verdict; score: number }) {
+  return (
+    <span class={`verdict ${verdict}`} title={VERDICT_TEXT.scoreTitle(score)}>
+      {VERDICT_TEXT[verdict]}
+    </span>
+  );
 }
 
 async function focusTab(tab: chrome.tabs.Tab) {
@@ -141,23 +162,22 @@ interface RowProps {
   busy: boolean;
 }
 
-function Row({ item, prefs, onArchive, busy }: RowProps) {
-  const { tab, result } = item;
+function Row({ item, onArchive, busy }: RowProps) {
+  const { tab, result, verdict } = item;
   const candidate = onArchive !== undefined;
   const blocker = candidate ? archiveBlocker(tab.url ?? '', result.indexPolicy) : null;
   const sensitive = blocker === 'sensitive';
   return (
     <li class="row">
       <button type="button" class="tab" onClick={() => focusTab(tab)} title={tab.url}>
-        <span class={`score ${scoreClass(result.score, prefs.archiveThreshold)}`} aria-label={`Score ${result.score}`}>
-          {result.score}
-        </span>
+        <VerdictChip verdict={verdict} score={result.score} />
         <span class="body">
           <span class="title">{tab.title || tab.url}</span>
           <span class="reason">
             <span class="type">{result.category?.name ?? result.group ?? CONTENT_TYPE_LABELS[result.contentType]}</span>
             {result.protected && <span class="type">protected</span>}
-            {sensitive && <span class="type">{ARCHIVE_TEXT.sensitive}</span>} {formatReasons(result.reasons)}
+            {sensitive && <span class="type">{ARCHIVE_TEXT.sensitive}</span>} {VERDICT_TEXT.scoreTitle(result.score)} ·{' '}
+            {formatReasons(result.reasons)}
           </span>
         </span>
       </button>
@@ -187,12 +207,14 @@ async function freshTabs(ids: number[]): Promise<chrome.tabs.Tab[]> {
 
 export function TabList({
   prefs,
-  archiveCount,
+  records,
+  onSavePrefs,
   notify,
   onEditPreferences,
   onOpenArchive,
   onOpenLicense,
   onOrganise,
+  onDismissWelcome,
   entitlement,
   savedLabels,
 }: Props) {
@@ -203,24 +225,23 @@ export function TabList({
   const [busy, setBusy] = useState(false);
   const [saveUnder, setSaveUnder] = useState('');
 
-  async function archive(items: ScoredTab[]) {
+  /** @param chosen the user picked these exact rows, so the score threshold doesn't apply (protection still does). */
+  async function archive(items: ScoredTab[], chosen = false) {
     if (busy) return;
-    // After the trial, archive buttons lead to the license screen instead.
-    if (entitlement && !canArchive(entitlement)) {
-      onOpenLicense();
-      return;
-    }
     setBusy(true);
     try {
       const ids = items.flatMap((i) => (i.tab.id === undefined ? [] : [i.tab.id]));
       const label = cleanLabel(saveUnder);
-      const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, groups, label, now: Date.now() });
+      const plan = planArchive(await freshTabs(ids), {
+        scorer,
+        prefs,
+        activity,
+        groups,
+        label,
+        chosen,
+        now: Date.now(),
+      });
       const result = await runArchive(plan, prefs);
-      if (result.locked) {
-        notify({ text: LICENSE_TEXT.lockedToast, error: true });
-        onOpenLicense();
-        return;
-      }
       const count = (reason: string) => result.skipped.filter((s) => s.reason === reason).length;
       const archived = result.archivedTabIds.length;
       const summary = formatArchiveResult(
@@ -258,16 +279,11 @@ export function TabList({
   const windowId = usePanelWindow();
   async function archiveCurrent(tab: chrome.tabs.Tab) {
     if (busy || tab.id === undefined) return;
-    if (entitlement && !canArchive(entitlement)) {
-      onOpenLicense();
-      return;
-    }
     setBusy(true);
     try {
       const label = cleanLabel(saveUnder);
       const r = await archiveTabNow(tab.id, prefs, label);
       if (!r.ok) {
-        if (r.reason === 'locked') onOpenLicense();
         notify({ text: CURRENT_TEXT.notArchived[r.reason], error: true });
         return;
       }
@@ -291,15 +307,19 @@ export function TabList({
     }
   }
 
-  const { candidates, keep, total } = useMemo(() => {
+  const { candidates, notSure, keep, total } = useMemo(() => {
     const now = Date.now();
     const scored: ScoredTab[] = tabs
       .filter((t) => !t.incognito)
-      .map((tab) => ({ tab, result: scorer.score(signalsOf(tab, activity, now, groups), now) }))
+      .map((tab) => {
+        const result = scorer.score(signalsOf(tab, activity, now, groups), now);
+        return { tab, result, verdict: scorer.verdict(result) };
+      })
       .sort((a, b) => a.result.score - b.result.score);
     return {
-      candidates: scored.filter((s) => scorer.isArchiveCandidate(s.result)),
-      keep: scored.filter((s) => !scorer.isArchiveCandidate(s.result)).reverse(),
+      candidates: scored.filter((s) => s.verdict === 'putAway'),
+      notSure: scored.filter((s) => s.verdict === 'notSure'),
+      keep: scored.filter((s) => s.verdict === 'keep').reverse(),
       total: scored.length,
     };
   }, [tabs, scorer, activity, groups]);
@@ -325,7 +345,7 @@ export function TabList({
             {GROUP_TEXT.organiseButton}
           </button>
           <button type="button" class="secondary small" onClick={onOpenArchive}>
-            Archive ({archiveCount})
+            Archive ({records.length})
           </button>
           <button type="button" class="secondary small" onClick={onEditPreferences}>
             Preferences
@@ -333,67 +353,145 @@ export function TabList({
         </div>
       </header>
 
-      <AutoArchiveBanner notify={notify} />
+      <QuickFind
+        records={records}
+        prefs={prefs}
+        notify={notify}
+        pageTextAllowed={canUse(entitlement, 'pageText')}
+        onOpenLicense={onOpenLicense}
+        onSavePrefs={onSavePrefs}
+        onOpenArchive={onOpenArchive}
+      >
+        <AutoArchiveBanner notify={notify} />
+        <ClosingSoon
+          records={records}
+          prefs={prefs}
+          allowed={canUse(entitlement, 'deadlines')}
+          notify={notify}
+          onOpenLicense={onOpenLicense}
+        />
 
-      <p class="summary">
-        {total} open tab{total === 1 ? '' : 's'} · <strong>{candidates.length}</strong> look like clutter
-      </p>
-
-      {current && (
-        <section class="current">
-          <div class="section-head">
-            <h2>{CURRENT_TEXT.heading}</h2>
-            {currentBlock ? (
-              <small class="muted">{CURRENT_TEXT.blocked[currentBlock]}</small>
-            ) : (
+        <section class={`hero${prefs.onboarded ? '' : ' first'}`}>
+          {!prefs.onboarded && <p class="welcome">{WELCOME_TEXT.hello}</p>}
+          <p class="hero-line">{WELCOME_TEXT.status(total, candidates.length)}</p>
+          <Gains />
+          {candidates.length > 0 && (
+            <div class="buttons">
+              {canUse(entitlement, 'organise') ? (
+                <button type="button" class="primary" disabled={busy} onClick={onOrganise}>
+                  {WELCOME_TEXT.preview}
+                </button>
+              ) : null}
               <button
                 type="button"
-                class="primary small"
+                class={canUse(entitlement, 'organise') ? 'secondary' : 'primary'}
                 disabled={busy}
-                onClick={() => void archiveCurrent(current.tab)}
+                onClick={() => void archive(candidates)}
               >
-                {CURRENT_TEXT.button}
+                {WELCOME_TEXT.putAwayAll(candidates.length)}
               </button>
-            )}
-          </div>
-          <p class="current-title" title={current.tab.url}>
-            <span class={`score ${scoreClass(current.result.score, prefs.archiveThreshold)}`}>
-              {current.result.score}
-            </span>
-            <span class="title">{current.tab.title || current.tab.url}</span>
-          </p>
-          <small class="muted">{CURRENT_TEXT.shortcut}</small>
+            </div>
+          )}
+          {!prefs.onboarded && (
+            <p class="muted">
+              <small>
+                {WELCOME_TEXT.optional}{' '}
+                <button type="button" class="link" onClick={onEditPreferences}>
+                  {WELCOME_TEXT.personalise}
+                </button>{' '}
+                ·{' '}
+                <button type="button" class="link" onClick={onDismissWelcome}>
+                  {WELCOME_TEXT.dismiss}
+                </button>
+              </small>
+            </p>
+          )}
         </section>
-      )}
 
-      {(current || candidates.length > 0) && (
-        <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
-      )}
+        {current && (
+          <section class="current">
+            <div class="section-head">
+              <h2>{CURRENT_TEXT.heading}</h2>
+              {currentBlock ? (
+                <small class="muted">{CURRENT_TEXT.blocked[currentBlock]}</small>
+              ) : (
+                <button
+                  type="button"
+                  class="primary small"
+                  disabled={busy}
+                  onClick={() => void archiveCurrent(current.tab)}
+                >
+                  {CURRENT_TEXT.button}
+                </button>
+              )}
+            </div>
+            <p class="current-title" title={current.tab.url}>
+              <VerdictChip verdict={scorer.verdict(current.result)} score={current.result.score} />
+              <span class="title">{current.tab.title || current.tab.url}</span>
+            </p>
+            <small class="muted">{CURRENT_TEXT.shortcut}</small>
+          </section>
+        )}
 
-      {candidates.length > 0 && (
-        <section>
-          <div class="section-head">
-            <h2>Clutter (score below {prefs.archiveThreshold})</h2>
-            <button type="button" class="primary small" disabled={busy} onClick={() => void archive(candidates)}>
-              {ARCHIVE_TEXT.archiveAll(candidates.length)}
-            </button>
-          </div>
-          <ul class="tabs">
-            {candidates.map((item) => (
-              <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} onArchive={() => void archive([item])} />
-            ))}
-          </ul>
-        </section>
-      )}
+        {(current || candidates.length > 0) && (
+          <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
+        )}
 
-      <section>
-        <h2>Keeping</h2>
-        <ul class="tabs">
-          {keep.map((item) => (
-            <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} />
-          ))}
-        </ul>
-      </section>
+        {candidates.length > 0 && (
+          <section>
+            <div class="section-head">
+              <h2>{VERDICT_TEXT.putAwayHeading(candidates.length)}</h2>
+              <button type="button" class="primary small" disabled={busy} onClick={() => void archive(candidates)}>
+                {ARCHIVE_TEXT.archiveAll(candidates.length)}
+              </button>
+            </div>
+            <ul class="tabs">
+              {candidates.map((item) => (
+                <Row
+                  key={item.tab.id}
+                  item={item}
+                  prefs={prefs}
+                  busy={busy}
+                  onArchive={() => void archive([item], true)}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {notSure.length > 0 && (
+          <section>
+            <h2>{VERDICT_TEXT.notSureHeading(notSure.length)}</h2>
+            <p class="muted">
+              <small>{VERDICT_TEXT.notSureHelp}</small>
+            </p>
+            <ul class="tabs">
+              {notSure.map((item) => (
+                <Row
+                  key={item.tab.id}
+                  item={item}
+                  prefs={prefs}
+                  busy={busy}
+                  onArchive={() => void archive([item], true)}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {keep.length > 0 && (
+          <details class="keep">
+            <summary>
+              <h2>{VERDICT_TEXT.keepHeading(keep.length)}</h2>
+            </summary>
+            <ul class="tabs">
+              {keep.map((item) => (
+                <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} />
+              ))}
+            </ul>
+          </details>
+        )}
+      </QuickFind>
     </main>
   );
 }

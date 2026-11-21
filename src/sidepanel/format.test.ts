@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAge, formatArchiveResult, formatReasons } from './format';
+import { formatMemory, formatAge, formatArchiveResult, formatReasons } from './format';
 
 describe('formatAge', () => {
   it.each([
@@ -32,5 +32,11 @@ describe('formatReasons', () => {
       'Archived 3 tabs · 1 tab couldn\'t be closed but is saved · 2 sensitive tabs left open (set to "never save")',
     );
     expect(formatArchiveResult(0, 0, 0, 0)).toBe('Nothing to archive');
+  });
+
+  it('formats memory freed', () => {
+    expect(formatMemory(300)).toBe('300 MB');
+    expect(formatMemory(2048)).toBe('2.0 GB');
+    expect(formatMemory(12_800)).toBe('13 GB');
   });
 });

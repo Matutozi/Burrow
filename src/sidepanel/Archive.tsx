@@ -12,7 +12,7 @@ import { hostOf } from '../prefs/classify';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { pageOpener } from '../archive/chromeApi';
 import { DataControls } from './DataControls';
-import { ARCHIVE_TEXT, formatDate, LABEL_TEXT } from './format';
+import { ARCHIVE_TEXT, DEADLINE_TEXT, formatDate, LABEL_TEXT } from './format';
 import { LabelInput } from './LabelInput';
 import type { Notify } from './Toast';
 
@@ -206,6 +206,13 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
                   <span class="title">{r.title || r.url}</span>
                   <span class="reason">
                     {r.label && <span class="label-tag">{r.label}</span>}
+                    {r.deadline !== undefined && (
+                      <span class="deadline-tag">
+                        {(r.deadline >= Date.now() ? DEADLINE_TEXT.closes : DEADLINE_TEXT.closed)(
+                          formatDate(r.deadline),
+                        )}
+                      </span>
+                    )}
                     <span class="type">{r.category ?? CONTENT_TYPE_LABELS[r.contentType]}</span>
                     {r.saved === 'full' && <span class="type">{ARCHIVE_TEXT.fullText}</span>}
                     {hostOf(r.url)} · {formatDate(r.archivedAt)}
