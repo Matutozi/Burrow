@@ -112,11 +112,11 @@ Done in the code:
 - [x] Every permission justified above; data use table matches PRIVACY.md
 - [x] Icons at 16, 32, 48 and 128 px
 - [x] Users can export, import and delete all data in the app
+- [x] MIT LICENSE file
 
 Owner to do before submitting:
 - [ ] Load `release/burrow-1.0.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
 - [ ] Make the GitHub repository public (or host PRIVACY.md elsewhere and update the URL in this file and `src/sidepanel/DataControls.tsx`)
 - [ ] Capture 3 screenshots at 1280×800 (see Screenshot Notes)
 - [ ] Fill in Publisher Name and Contact Email; verify the email in the developer dashboard
-- [ ] Choose a license and add a LICENSE file (`package.json` currently says ISC)
 - [ ] Upload `release/burrow-1.0.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit

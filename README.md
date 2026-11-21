@@ -92,3 +92,6 @@ artifact.
 
 See [PRIVACY.md](PRIVACY.md) for the full privacy policy and [CLAUDE.md](CLAUDE.md) for
 engineering rules.
+
+## License
+[MIT](LICENSE)
