@@ -54,6 +54,11 @@ export interface PlanOptions {
    * still does: an active, pinned or audible tab is never closed.
    */
   chosen?: boolean;
+  /**
+   * The user asked to archive this very tab ("Archive this tab" or the keyboard shortcut). Its score
+   * and being in front don't matter; only a pinned tab is refused (unpin it first).
+   */
+  explicit?: boolean;
   /** "Save under" name for every archived tab. */
   label?: string;
   /** Per-tab "Save under" names, which win over `label`. */
@@ -70,14 +75,18 @@ export interface PlanOptions {
  * audible since the list was drawn is left alone. In automatic mode, `allTabs` must be every open
  * tab, so windows can be counted.
  */
-export function planArchive(tabs: chrome.tabs.Tab[], opts: PlanOptions, allTabs: chrome.tabs.Tab[] = tabs): ArchivePlan {
-  const { scorer, prefs, activity, now, groups, label, labels, chosen = false, auto = false } = opts;
+export function planArchive(
+  tabs: chrome.tabs.Tab[],
+  opts: PlanOptions,
+  allTabs: chrome.tabs.Tab[] = tabs,
+): ArchivePlan {
+  const { scorer, prefs, activity, now, groups, label, labels, chosen = false, explicit = false, auto = false } = opts;
   const minAgeMs = prefs.autoArchiveAfterHours * HOUR_MS;
 
   let picked = tabs.flatMap((tab) => {
     if (tab.id === undefined || tab.incognito) return [];
     const result = scorer.score(signalsOf(tab, activity, now, groups), now);
-    if (chosen ? result.protected : !scorer.isArchiveCandidate(result)) return [];
+    if (explicit ? tab.pinned : chosen ? result.protected : !scorer.isArchiveCandidate(result)) return [];
     const url = tab.url ?? '';
     const policy = result.indexPolicy;
     if (auto) {

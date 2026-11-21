@@ -3,7 +3,7 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: 1.5.0, ready for Chrome Web Store submission. See the checklist in
+> Status: 1.6.0, ready for Chrome Web Store submission. See the checklist in
 > [CHROMEWEBSTORE.md](CHROMEWEBSTORE.md#submission-checklist).
 
 ## Features (so far)
@@ -43,6 +43,11 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   at most 20 tabs per check. It never touches pinned, audible or open-in-front tabs, sensitive pages,
   browser pages, or the last tab in a window. A banner in the tab list shows what it archived, with
   one-click **Undo**.
+- **Archive the tab you're on:** the **This tab** card at the top of the side panel has an **Archive this
+  tab** button (it uses the **Save under** name too), or press **Alt+Shift+A** on any tab without opening
+  Burrow (change it in chrome://extensions/shortcuts). Its score doesn't matter, since you chose it. Pinned
+  tabs, "never save" pages and browser pages are refused. The toolbar icon flashes ✓, and Undo is in
+  Burrow's banner.
 - **Save under a name:** when archiving (from the tab list or Organise), type a name like *School* in
   **Save under**. Later, type `school` in the Archive search or `burrow school` in the address bar to list
   everything saved under it, or click its chip in the Archive view. "Archive group" in Organise saves under

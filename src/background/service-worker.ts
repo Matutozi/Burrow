@@ -3,7 +3,7 @@
 import { createActivityStore, readActivity } from '../activity/store';
 import { EMPTY_ACTIVITY, focusTab, pruneTabs, removeTab, replaceTab } from '../activity/tracker';
 import { recordAutoRun } from '../archive/autoRun';
-import { runArchive } from '../archive/chromeApi';
+import { archiveTabNow, runArchive } from '../archive/chromeApi';
 import { resolveEntered, suggest } from '../archive/omnibox';
 import { planArchive } from '../archive/plan';
 import { createArchiveSearch, type ArchiveRecord, type ArchiveSearch } from '../archive/record';
@@ -13,7 +13,7 @@ import { ensureTrialStarted } from '../license/store';
 import { loadPreferences, onPreferencesChanged } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
 import { createScorer } from '../scoring/score';
-import { OMNIBOX_TEXT } from '../sidepanel/format';
+import { CURRENT_TEXT, OMNIBOX_TEXT } from '../sidepanel/format';
 
 const AUTO_ARCHIVE_ALARM = 'burrow-auto-archive';
 
@@ -100,7 +100,12 @@ async function applySettings(prefs: Preferences): Promise<void> {
     return;
   }
   const open = await chrome.tabs.query({});
-  await activity.update((s) => pruneTabs(s, open.flatMap((t) => (t.id === undefined ? [] : [t.id]))));
+  await activity.update((s) =>
+    pruneTabs(
+      s,
+      open.flatMap((t) => (t.id === undefined ? [] : [t.id])),
+    ),
+  );
   await refreshFocus();
 }
 
@@ -122,7 +127,10 @@ function archiveForSearch() {
   return archiveCache;
 }
 
-async function openFromOmnibox(text: string, disposition: `${chrome.omnibox.OnInputEnteredDisposition}`): Promise<void> {
+async function openFromOmnibox(
+  text: string,
+  disposition: `${chrome.omnibox.OnInputEnteredDisposition}`,
+): Promise<void> {
   const { records, search } = await archiveForSearch();
   const rec = resolveEntered(text, records, search);
   if (!rec) return;
@@ -137,7 +145,36 @@ async function openFromOmnibox(text: string, disposition: `${chrome.omnibox.OnIn
   await chrome.tabs.create({ url: rec.url, active: disposition !== 'newBackgroundTab' });
 }
 
+/** Brief feedback on the toolbar icon after the shortcut, since no Burrow page may be open. */
+async function flashBadge(text: string, color: string, title: string): Promise<void> {
+  await chrome.action.setBadgeBackgroundColor({ color });
+  await chrome.action.setBadgeText({ text });
+  await chrome.action.setTitle({ title });
+  // Cleared after a few seconds. If Chrome stops the worker first, the next shortcut use resets it.
+  setTimeout(() => {
+    void chrome.action.setBadgeText({ text: '' }).catch(logError('could not clear badge'));
+    void chrome.action.setTitle({ title: 'Open Burrow' }).catch(logError('could not reset title'));
+  }, 3000);
+}
+
+/** Keyboard shortcut: archive the tab in front of the focused window. Undo is offered in Burrow's banner. */
+async function archiveFocusedTab(): Promise<void> {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (tab?.id === undefined) return;
+  const prefs = await loadPreferences();
+  const r = await archiveTabNow(tab.id, prefs);
+  if (!r.ok) {
+    await flashBadge('!', '#d93025', CURRENT_TEXT.notArchived[r.reason]);
+    return;
+  }
+  await recordAutoRun({ since: Date.now(), tabCount: 1, undo: r.undo, places: r.places }, chrome.storage.local);
+  await flashBadge('✓', '#188038', CURRENT_TEXT.shortcutDone);
+}
+
 // Listeners must be registered synchronously at the top level so Chrome can wake the worker for them.
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'archive-current-tab') void archiveFocusedTab().catch(logError('shortcut archive failed'));
+});
 chrome.omnibox.setDefaultSuggestion({ description: OMNIBOX_TEXT.defaultSuggestion });
 chrome.omnibox.onInputChanged.addListener((text, show) => {
   archiveForSearch().then(
@@ -157,11 +194,11 @@ chrome.permissions.onAdded.addListener((perms) => {
   if (!perms.permissions?.includes('alarms')) return;
   // Granted while this worker is running: start listening now and schedule right away.
   listenForAlarms();
-  void loadPreferences()
-    .then(syncAutoArchiveAlarm)
-    .catch(logError('could not schedule automatic archiving'));
+  void loadPreferences().then(syncAutoArchiveAlarm).catch(logError('could not schedule automatic archiving'));
 });
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(logError('could not set side panel behavior'));
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch(logError('could not set side panel behavior'));
 
 chrome.runtime.onInstalled.addListener(() => {
   void init().catch(logError('init failed'));

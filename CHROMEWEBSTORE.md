@@ -1,6 +1,6 @@
 # Chrome Web Store Listing: Burrow
 
-> Last Updated: 2026-11-21 · Version 1.5.0 · Ready to submit (see [Submission checklist](#submission-checklist))
+> Last Updated: 2026-11-21 · Version 1.6.0 · Ready to submit (see [Submission checklist](#submission-checklist))
 
 ## Store Listing
 
@@ -18,6 +18,8 @@ How to use it: click the Burrow icon to open the side panel, answer a few setup 
 Archive instead of close: archive one clutter tab or all of them at once. Burrow saves each page's title and address before closing the tab, every archive can be undone, and the Archive view lets you search, reopen or delete archived pages. Email, banking and health pages are never archived by default. You can export all your data as a file, import it again on any device, or delete everything at any time, and every import and delete can be undone.
 
 Organise 100+ tabs in one step: click Organise and Burrow proposes a cleanup. Low-value tabs are archived (saved, searchable, closed to free memory) and the tabs worth keeping are put into Chrome tab groups (your own categories like "Courses" first, then Docs, Videos and more). Review the preview, move anything between Archive and the groups, rename, recolour or skip groups, then confirm. Nothing changes until you do, and one Undo reverses it all. Burrow can also use your existing groups: a tab in a group named "Courses" counts as your Courses category, and archived tabs go back into their group when reopened.
+
+Archive the tab you're on: one click in the side panel, or press Alt+Shift+A on any tab.
 
 Save under a name: archive tabs under a name like "School" and get them all back later by typing that name, in the Archive or after "burrow" in the address bar.
 
@@ -122,6 +124,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | 1.3.0 | 2026-11-21 | Organise tabs into Chrome tab groups with an editable preview and undo; optional use of existing groups as categories; archived pages remember and restore their group. New optional permission: tabGroups. Preferences v5, archive records v4. |
 | 1.4.0 | 2026-11-21 | Organise becomes a cleanup: low-score tabs (including clutter inside existing groups) are proposed for the archive, keepers are grouped (categories, types, then same-site tabs); one confirmation and one undo for both. No new permissions. |
 | 1.5.0 | 2026-11-21 | "Save under" names for archived pages (tab list, Organise, rename existing pages), name chips in the Archive and name search in the address bar; new built-in types Courses & learning and Jobs & opportunities, coding-practice sites, title-based hints for unknown sites. Preferences v6, archive records v5. No new permissions. |
+| 1.6.0 | 2026-11-21 | "Archive this tab" button and Alt+Shift+A keyboard shortcut (manifest `commands`, no permission) for the tab in front; refuses pinned, "never save" and browser pages; undo via the banner. No new permissions. |
 
 ## Submission Checklist
 Done in the code:
@@ -134,11 +137,11 @@ Done in the code:
 - [x] MIT LICENSE file
 
 Owner to do before submitting:
-- [ ] Load `release/burrow-1.5.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
+- [ ] Load `release/burrow-1.6.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
 - [ ] Make the GitHub repository public (or host PRIVACY.md elsewhere and update the URL in this file and `src/sidepanel/DataControls.tsx`)
 - [ ] Capture 3 screenshots at 1280×800 (see Screenshot Notes)
 - [ ] Fill in Publisher Name and Contact Email; verify the email in the developer dashboard
 - [ ] Back up `.license/private-key.json` (password manager or encrypted drive) and never commit it
 - [ ] Create the store page (e.g. Lemon Squeezy), set `PURCHASE_URL` in `src/license/config.ts`, and plan how keys reach buyers (`npm run license -- issue <orderId>`)
 - [ ] Tick "Offers in-app purchases" in the dashboard
-- [ ] Upload `release/burrow-1.5.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit
+- [ ] Upload `release/burrow-1.6.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit

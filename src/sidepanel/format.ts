@@ -137,7 +137,7 @@ export const AUTO_TEXT = {
   safety:
     'Burrow never automatically archives pinned, audible or open-in-front tabs, sensitive pages, or the last tab in a window. Every automatic cleanup can be undone from the tab list.',
   banner: (n: number, since: number) =>
-    `Burrow archived ${plural(n, 'tab')} automatically since ${new Date(since).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`,
+    `Archived in the background (shortcut or automatic cleanup): ${plural(n, 'tab')} since ${new Date(since).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}.`,
   undone: (n: number) => (n > 0 ? `Reopened ${plural(n, 'tab')}` : 'Those pages were already reopened or deleted.'),
   undoFailed: 'Could not reopen the tabs. They are still in your archive.',
   dismiss: 'Dismiss',
@@ -246,4 +246,25 @@ export const LABEL_TEXT = {
     label ? `Saved ${plural(n, 'page')} under "${label}"` : `Removed the name from ${plural(n, 'page')}`,
   relabelFailed: 'Could not save the name. Try again.',
   undone: 'Name change undone.',
+};
+
+export const CURRENT_TEXT = {
+  heading: 'This tab',
+  button: 'Archive this tab',
+  shortcut: 'Tip: press Alt+Shift+A on any tab to archive it without opening Burrow.',
+  shortcutDone: 'Burrow: tab archived. Open Burrow to undo.',
+  archived: (title: string, label: string) =>
+    label ? `Archived "${title.slice(0, 60)}" under "${label}"` : `Archived "${title.slice(0, 60)}"`,
+  blocked: {
+    pinned: 'Pinned: unpin it to archive',
+    sensitive: 'Set to "never save"',
+    notWebPage: "Browser pages can't be archived",
+  } as Record<'pinned' | 'sensitive' | 'notWebPage', string>,
+  notArchived: {
+    pinned: 'Pinned tabs are not archived. Unpin it first.',
+    sensitive: 'This kind of page is set to "never save", so it stays open.',
+    notWebPage: "Browser pages can't be archived.",
+    locked: 'Your free trial has ended. Enter a license key to keep archiving.',
+    gone: 'That tab was already closed.',
+  } as Record<'pinned' | 'sensitive' | 'notWebPage' | 'locked' | 'gone', string>,
 };

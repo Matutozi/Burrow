@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { onActivityChanged, readActivity } from '../activity/store';
 import { EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
-import { runArchive, undoIfUnchanged } from '../archive/chromeApi';
+import { archiveTabNow, runArchive, undoIfUnchanged } from '../archive/chromeApi';
 import { planArchive, signalsOf } from '../archive/plan';
 import { archiveBlocker, cleanLabel } from '../archive/record';
 import { canArchive, type Entitlement } from '../license/entitlement';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { createScorer, type TabScore } from '../scoring/score';
 import { AutoArchiveBanner } from './AutoArchiveBanner';
-import { ARCHIVE_TEXT, formatArchiveResult, formatReasons, GROUP_TEXT, LICENSE_TEXT } from './format';
+import { ARCHIVE_TEXT, CURRENT_TEXT, formatArchiveResult, formatReasons, GROUP_TEXT, LICENSE_TEXT } from './format';
 import { useGroups } from './groups';
 import { LabelInput } from './LabelInput';
 import { LicenseChip } from './License';
@@ -36,6 +36,18 @@ interface ScoredTab {
 const REFRESH_MS = 60_000;
 
 /** Reads all open tabs and keeps them fresh as tabs change. */
+/** Id of the window this side panel belongs to. Each window has its own panel. */
+function usePanelWindow(): number | null {
+  const [id, setId] = useState<number | null>(null);
+  useEffect(() => {
+    chrome.windows.getCurrent().then(
+      (w) => setId(w.id ?? null),
+      (err: unknown) => console.error('Burrow: could not read the current window', err),
+    );
+  }, []);
+  return id;
+}
+
 export function useTabs(): chrome.tabs.Tab[] {
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([]);
 
@@ -242,6 +254,43 @@ export function TabList({
     }
   }
 
+  /** The tab in front in this side panel's window. */
+  const windowId = usePanelWindow();
+  async function archiveCurrent(tab: chrome.tabs.Tab) {
+    if (busy || tab.id === undefined) return;
+    if (entitlement && !canArchive(entitlement)) {
+      onOpenLicense();
+      return;
+    }
+    setBusy(true);
+    try {
+      const label = cleanLabel(saveUnder);
+      const r = await archiveTabNow(tab.id, prefs, label);
+      if (!r.ok) {
+        if (r.reason === 'locked') onOpenLicense();
+        notify({ text: CURRENT_TEXT.notArchived[r.reason], error: true });
+        return;
+      }
+      notify({
+        text: CURRENT_TEXT.archived(r.record.title || r.record.url, label),
+        undo: async () => {
+          try {
+            await undoIfUnchanged(r.undo, r.places);
+            notify({ text: ARCHIVE_TEXT.undone });
+          } catch (err) {
+            console.error('Burrow: undo failed', err);
+            notify({ text: ARCHIVE_TEXT.undoFailed, error: true });
+          }
+        },
+      });
+    } catch (err) {
+      console.error('Burrow: archiving this tab failed', err);
+      notify({ text: ARCHIVE_TEXT.saveFailed, error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const { candidates, keep, total } = useMemo(() => {
     const now = Date.now();
     const scored: ScoredTab[] = tabs
@@ -254,6 +303,17 @@ export function TabList({
       total: scored.length,
     };
   }, [tabs, scorer, activity, groups]);
+
+  const current = useMemo(() => {
+    const now = Date.now();
+    const tab = tabs.find((t) => t.active && t.windowId === windowId && !t.incognito);
+    return tab ? { tab, result: scorer.score(signalsOf(tab, activity, now, groups), now) } : null;
+  }, [tabs, windowId, scorer, activity, groups]);
+  const currentBlock = current
+    ? current.tab.pinned
+      ? 'pinned'
+      : archiveBlocker(current.tab.url ?? '', current.result.indexPolicy)
+    : null;
 
   return (
     <main class="tablist">
@@ -279,6 +339,37 @@ export function TabList({
         {total} open tab{total === 1 ? '' : 's'} · <strong>{candidates.length}</strong> look like clutter
       </p>
 
+      {current && (
+        <section class="current">
+          <div class="section-head">
+            <h2>{CURRENT_TEXT.heading}</h2>
+            {currentBlock ? (
+              <small class="muted">{CURRENT_TEXT.blocked[currentBlock]}</small>
+            ) : (
+              <button
+                type="button"
+                class="primary small"
+                disabled={busy}
+                onClick={() => void archiveCurrent(current.tab)}
+              >
+                {CURRENT_TEXT.button}
+              </button>
+            )}
+          </div>
+          <p class="current-title" title={current.tab.url}>
+            <span class={`score ${scoreClass(current.result.score, prefs.archiveThreshold)}`}>
+              {current.result.score}
+            </span>
+            <span class="title">{current.tab.title || current.tab.url}</span>
+          </p>
+          <small class="muted">{CURRENT_TEXT.shortcut}</small>
+        </section>
+      )}
+
+      {(current || candidates.length > 0) && (
+        <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
+      )}
+
       {candidates.length > 0 && (
         <section>
           <div class="section-head">
@@ -287,7 +378,6 @@ export function TabList({
               {ARCHIVE_TEXT.archiveAll(candidates.length)}
             </button>
           </div>
-          <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
           <ul class="tabs">
             {candidates.map((item) => (
               <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} onArchive={() => void archive([item])} />

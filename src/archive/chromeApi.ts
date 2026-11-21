@@ -2,11 +2,14 @@
  * Thin Chrome wrappers shared by the side panel and the service worker. Logic stays in the pure
  * modules next to this file.
  */
-import { restoreTabGroup } from '../groups/chromeGroups';
+import { readActivity } from '../activity/store';
+import { EMPTY_ACTIVITY } from '../activity/tracker';
+import { readGroups, restoreTabGroup } from '../groups/chromeGroups';
 import { mayArchive } from '../license/store';
 import type { Preferences } from '../prefs/types';
 import { CAPTURE_LIMITS, CAPTURE_PERMISSIONS, captureTexts, extractPageText } from './capture';
-import type { TabPlace, ArchivePlan, TabPlaces } from './plan';
+import { createScorer } from '../scoring/score';
+import { planArchive, type ArchivePlan, type TabPlace, type TabPlaces } from './plan';
 import type { ArchiveRecord } from './record';
 import { archiveTabs, listArchive, reconcileUndo, undoArchive, type ArchiveResult, type ArchiveUndo } from './store';
 
@@ -88,4 +91,40 @@ export async function undoIfUnchanged(undo: ArchiveUndo, places: TabPlaces): Pro
   const still = reconcileUndo(undo, await listArchive());
   if (still.saved.length > 0) await undoArchive(still, pageOpener(places));
   return still.saved.length;
+}
+
+export type NotArchivedReason = 'pinned' | 'notWebPage' | 'sensitive' | 'locked' | 'gone';
+
+export type ArchiveNowResult =
+  | { ok: true; undo: ArchiveUndo; places: TabPlaces; record: ArchiveRecord }
+  | { ok: false; reason: NotArchivedReason };
+
+/**
+ * Archives one tab because the user asked to ("Archive this tab" or the keyboard shortcut). It is
+ * re-read first, then goes through the same path as every archive: license check, save, then close.
+ */
+export async function archiveTabNow(tabId: number, prefs: Preferences, label?: string): Promise<ArchiveNowResult> {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || tab.incognito) return { ok: false, reason: 'gone' };
+  if (tab.pinned) return { ok: false, reason: 'pinned' };
+  const [activity, groups] = await Promise.all([
+    prefs.trackActivity ? readActivity() : Promise.resolve(EMPTY_ACTIVITY),
+    prefs.useTabGroups ? readGroups() : Promise.resolve(undefined),
+  ]);
+  const plan = planArchive([tab], {
+    scorer: createScorer(prefs),
+    prefs,
+    activity,
+    groups,
+    label,
+    now: Date.now(),
+    explicit: true,
+  });
+  const result = await runArchive(plan, prefs);
+  if (result.locked) return { ok: false, reason: 'locked' };
+  const skipped = result.skipped[0];
+  if (skipped) return { ok: false, reason: skipped.reason };
+  const record = result.undo.saved[0];
+  if (!record) return { ok: false, reason: 'gone' };
+  return { ok: true, undo: result.undo, places: plan.places, record };
 }

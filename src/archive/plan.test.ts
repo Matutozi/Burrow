@@ -78,6 +78,17 @@ describe('planArchive', () => {
     expect(p.requests.map((r) => r.tabId)).toEqual([fresh.id]);
   });
 
+  it('archives the tab the user is on when they ask for it, but never a pinned one', () => {
+    const current = tab({ active: true, lastAccessed: NOW });
+    const pinned = tab({ active: true, pinned: true });
+    const prefs = { ...defaultPreferences(), alwaysImportant: ['site1.com'] };
+    const opts = { scorer: createScorer(prefs), prefs, activity: EMPTY_ACTIVITY, now: NOW, explicit: true };
+    expect(planArchive([current], opts).requests.map((r) => r.tabId)).toEqual([current.id]);
+    expect(planArchive([pinned], opts).requests).toEqual([]);
+    // Without the explicit flag, the tab in front stays protected.
+    expect(planArchive([current], { ...opts, explicit: false, chosen: true }).requests).toEqual([]);
+  });
+
   describe('automatic mode', () => {
     it('needs the tab untouched for the configured hours', () => {
       const prefs = { ...defaultPreferences(), autoArchiveAfterHours: 48, archiveThreshold: 100 };

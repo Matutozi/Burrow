@@ -38,6 +38,14 @@ export default defineManifest((env) => ({
   action: { default_title: 'Open Burrow', default_icon: ICONS },
   // Type "burrow" then a space in the address bar to search archived pages. Needs no permission.
   omnibox: { keyword: 'burrow' },
+  // Keyboard shortcut to archive the tab in front. Needs no permission; users can change it in
+  // chrome://extensions/shortcuts.
+  commands: {
+    'archive-current-tab': {
+      suggested_key: { default: 'Alt+Shift+A' },
+      description: 'Archive the current tab',
+    },
+  },
   side_panel: { default_path: 'src/sidepanel/index.html' },
   background: { service_worker: 'src/background/service-worker.ts', type: 'module' },
   permissions: ['tabs', 'storage', 'sidePanel', 'idle'],
