@@ -1,6 +1,6 @@
 # Burrow Privacy Policy
 
-_Last updated: 2026-11-21 (v1.1.0)_
+_Last updated: 2026-11-21 (v1.3.0)_
 
 Burrow is built so that your data never leaves your control.
 
@@ -8,9 +8,9 @@ Burrow is built so that your data never leaves your control.
 
 | Data | Where it is stored | Leaves your device? |
 |---|---|---|
-| Your preferences (persona, priorities, topics, site lists, scoring settings) | Your Chrome profile (`chrome.storage.sync`) | Only through your own Chrome sync, to your own signed-in devices, if you have Chrome sync turned on. Burrow never receives it. |
+| Your preferences (persona, priorities, your own categories, topics, site lists, scoring settings) | Your Chrome profile (`chrome.storage.sync`) | Only through your own Chrome sync, to your own signed-in devices, if you have Chrome sync turned on. Burrow never receives it. |
 | Open tab titles, addresses and last-used times | Read on demand to calculate scores. Not stored. | No |
-| Archived pages: title, address, page type, score and the date you archived it | This device only (`chrome.storage.local`). Never synced. | No |
+| Archived pages: title, address, page type, your category and tab group name, score and the date you archived it | This device only (`chrome.storage.local`). Never synced. | No |
 | Page text of archived pages (only if you turn on page-text saving, and only for page types set to "Full text"): up to 8,000 characters of the page's readable text | This device only (`chrome.storage.local`), inside the archived page's record. Never synced. | No |
 | The last automatic cleanup (copies of the archived pages' records and their tab positions), kept so you can undo it | This device only (`chrome.storage.local`). Removed when you undo or dismiss it. | No |
 | Free-trial start date | Your Chrome profile (`chrome.storage.sync`) and this device (`chrome.storage.local`) | Only through your own Chrome sync |
@@ -29,6 +29,11 @@ page access back to Chrome. Text you already saved stays in your archive until y
 
 Address-bar search (`burrow` + space) runs inside Burrow. Chrome passes what you type after the
 keyword only to Burrow, and Burrow looks it up in your on-device archive.
+
+## Tab groups
+If you use **Organise** or turn on "Use my Chrome tab groups", Burrow reads the names and colours of your
+tab groups to suggest and create groups and to label tabs. It only creates or changes groups after you
+confirm, and it stores a group's name and colour only as part of an archived page's record.
 
 ## Payments and licenses
 If you buy a license, the purchase happens on the seller's website in your browser, under that

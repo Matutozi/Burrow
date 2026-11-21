@@ -3,15 +3,17 @@
  * they are searched. No Chrome APIs here, so every edge case is unit-tested.
  */
 import { hostOf } from '../prefs/classify';
+import { sanitizeGroup, type GroupInfo } from '../groups/info';
 import { CAPTURE_LIMITS, cleanText } from './capture';
 import { CONTENT_TYPES, type ContentType, type IndexPolicy } from '../prefs/types';
 
 /** Current record shape. Bump it and add a step in `migrateRecord` when the shape changes. */
-export const ARCHIVE_VERSION = 2;
+export const ARCHIVE_VERSION = 4;
 
 export const ARCHIVE_LIMITS = {
   maxTitleLength: 500,
   maxUrlLength: 4096,
+  maxCategoryLength: 40,
 } as const;
 
 export interface ArchiveRecord {
@@ -29,6 +31,10 @@ export interface ArchiveRecord {
   saved: Exclude<IndexPolicy, 'never'>;
   /** Readable page text, only when saved is 'full'. (v2) */
   text?: string;
+  /** Name of the user's own category, if the page belonged to one when archived. (v3) */
+  category?: string;
+  /** The Chrome tab group the tab was in, so reopening can put it back. (v4) */
+  group?: GroupInfo;
 }
 
 /** Everything needed to archive one open tab. */
@@ -39,6 +45,10 @@ export interface ArchiveInput {
   score: number;
   /** Captured page text. Kept only when the policy is 'full'. */
   text?: string;
+  /** The user's category name, if any. */
+  category?: string;
+  /** The tab's Chrome group, if any. */
+  group?: GroupInfo;
 }
 
 type Raw = Record<string, unknown>;
@@ -80,6 +90,8 @@ export async function buildRecord(input: ArchiveInput, policy: IndexPolicy, now:
     score: Math.round(Math.min(100, Math.max(0, Number.isFinite(input.score) ? input.score : 0))),
     archivedAt: now,
     ...withText(policy === 'full' ? input.text : undefined),
+    ...withCategory(input.category),
+    ...withGroup(input.group),
   };
 }
 
@@ -89,13 +101,23 @@ function withText(raw: unknown): Pick<ArchiveRecord, 'saved' | 'text'> {
   return text ? { saved: 'full', text } : { saved: 'title' };
 }
 
+function withGroup(raw: unknown): Pick<ArchiveRecord, 'group'> {
+  const group = sanitizeGroup(raw);
+  return group ? { group } : {};
+}
+
+function withCategory(raw: unknown): Pick<ArchiveRecord, 'category'> {
+  const name = typeof raw === 'string' ? raw.trim().slice(0, ARCHIVE_LIMITS.maxCategoryLength) : '';
+  return name ? { category: name } : {};
+}
+
 /** The same record with its page text removed, for when storage is too full to hold it. */
 export function withoutText(record: ArchiveRecord): ArchiveRecord {
   const { text: _text, ...rest } = record;
   return { ...rest, saved: 'title' };
 }
 
-/** Upgrades older stored shapes. v1 -> v2 added optional `text`, so v1 records are already valid. */
+/** Upgrades older stored shapes. v2 added optional `text`, v3 `category`, v4 `group`: older records are already valid. */
 function migrateRecord(raw: Raw): Raw {
   return raw;
 }
@@ -120,6 +142,8 @@ export function sanitizeRecord(input: unknown, id: string): ArchiveRecord | null
     score,
     archivedAt: Math.max(0, archivedAt),
     ...withText(raw.saved === 'full' ? raw.text : undefined),
+    ...withCategory(raw.category),
+    ...withGroup(raw.group),
   };
 }
 
@@ -139,7 +163,7 @@ export type ArchiveSearch = (query: string) => ArchiveRecord[];
  * each keystroke only scans. Every word in the query must appear somewhere in the record.
  */
 export function createArchiveSearch(records: ArchiveRecord[]): ArchiveSearch {
-  const hays = records.map((r) => `${r.title} ${r.url} ${r.text ?? ''}`.toLowerCase());
+  const hays = records.map((r) => `${r.title} ${r.url} ${r.category ?? ''} ${r.group?.title ?? ''} ${r.text ?? ''}`.toLowerCase());
   return (query) => {
     const words = queryWords(query);
     if (words.length === 0) return records;

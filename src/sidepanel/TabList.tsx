@@ -8,7 +8,8 @@ import { canArchive, type Entitlement } from '../license/entitlement';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { createScorer, type TabScore } from '../scoring/score';
 import { AutoArchiveBanner } from './AutoArchiveBanner';
-import { ARCHIVE_TEXT, formatArchiveResult, formatReasons, LICENSE_TEXT } from './format';
+import { ARCHIVE_TEXT, formatArchiveResult, formatReasons, GROUP_TEXT, LICENSE_TEXT } from './format';
+import { useGroups } from './groups';
 import { LicenseChip } from './License';
 import type { Notify } from './Toast';
 
@@ -19,6 +20,8 @@ interface Props {
   onEditPreferences: () => void;
   onOpenArchive: () => void;
   onOpenLicense: () => void;
+  /** Opens "Organise tabs". Called from the click, so it can ask Chrome for tab group access. */
+  onOrganise: () => void;
   entitlement: Entitlement | null;
 }
 
@@ -30,7 +33,7 @@ interface ScoredTab {
 const REFRESH_MS = 60_000;
 
 /** Reads all open tabs and keeps them fresh as tabs change. */
-function useTabs(): chrome.tabs.Tab[] {
+export function useTabs(): chrome.tabs.Tab[] {
   const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([]);
 
   useEffect(() => {
@@ -47,7 +50,13 @@ function useTabs(): chrome.tabs.Tab[] {
       }, 150);
     };
     const onUpdated = (_id: number, change: chrome.tabs.OnUpdatedInfo) => {
-      if (change.status === 'complete' || change.title || change.pinned !== undefined || change.audible !== undefined)
+      if (
+        change.status === 'complete' ||
+        change.title ||
+        change.pinned !== undefined ||
+        change.audible !== undefined ||
+        change.groupId !== undefined
+      )
         refresh();
     };
 
@@ -71,7 +80,7 @@ function useTabs(): chrome.tabs.Tab[] {
 }
 
 /** Live visit and time counters kept by the service worker. */
-function useActivity(enabled: boolean): ActivityState {
+export function useActivity(enabled: boolean): ActivityState {
   const [state, setState] = useState<ActivityState>(EMPTY_ACTIVITY);
   useEffect(() => {
     if (!enabled) {
@@ -120,7 +129,7 @@ interface RowProps {
 function Row({ item, prefs, onArchive, busy }: RowProps) {
   const { tab, result } = item;
   const candidate = onArchive !== undefined;
-  const blocker = candidate ? archiveBlocker(tab.url ?? '', prefs.indexPolicy[result.contentType]) : null;
+  const blocker = candidate ? archiveBlocker(tab.url ?? '', result.indexPolicy) : null;
   const sensitive = blocker === 'sensitive';
   return (
     <li class="row">
@@ -131,7 +140,7 @@ function Row({ item, prefs, onArchive, busy }: RowProps) {
         <span class="body">
           <span class="title">{tab.title || tab.url}</span>
           <span class="reason">
-            <span class="type">{CONTENT_TYPE_LABELS[result.contentType]}</span>
+            <span class="type">{result.category?.name ?? result.group ?? CONTENT_TYPE_LABELS[result.contentType]}</span>
             {result.protected && <span class="type">protected</span>}
             {sensitive && <span class="type">{ARCHIVE_TEXT.sensitive}</span>} {formatReasons(result.reasons)}
           </span>
@@ -168,10 +177,12 @@ export function TabList({
   onEditPreferences,
   onOpenArchive,
   onOpenLicense,
+  onOrganise,
   entitlement,
 }: Props) {
   const tabs = useTabs();
   const activity = useActivity(prefs.trackActivity);
+  const groups = useGroups(prefs.useTabGroups);
   const scorer = useMemo(() => createScorer(prefs), [prefs]);
   const [busy, setBusy] = useState(false);
 
@@ -185,7 +196,7 @@ export function TabList({
     setBusy(true);
     try {
       const ids = items.flatMap((i) => (i.tab.id === undefined ? [] : [i.tab.id]));
-      const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, now: Date.now() });
+      const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, groups, now: Date.now() });
       const result = await runArchive(plan, prefs);
       if (result.locked) {
         notify({ text: LICENSE_TEXT.lockedToast, error: true });
@@ -227,14 +238,14 @@ export function TabList({
     const now = Date.now();
     const scored: ScoredTab[] = tabs
       .filter((t) => !t.incognito)
-      .map((tab) => ({ tab, result: scorer.score(signalsOf(tab, activity, now), now) }))
+      .map((tab) => ({ tab, result: scorer.score(signalsOf(tab, activity, now, groups), now) }))
       .sort((a, b) => a.result.score - b.result.score);
     return {
       candidates: scored.filter((s) => scorer.isArchiveCandidate(s.result)),
       keep: scored.filter((s) => !scorer.isArchiveCandidate(s.result)).reverse(),
       total: scored.length,
     };
-  }, [tabs, scorer, activity]);
+  }, [tabs, scorer, activity, groups]);
 
   return (
     <main class="tablist">
@@ -242,6 +253,9 @@ export function TabList({
         <h1>Burrow</h1>
         <div class="buttons">
           <LicenseChip ent={entitlement} onOpen={onOpenLicense} />
+          <button type="button" class="secondary small" onClick={onOrganise}>
+            {GROUP_TEXT.organiseButton}
+          </button>
           <button type="button" class="secondary small" onClick={onOpenArchive}>
             Archive ({archiveCount})
           </button>

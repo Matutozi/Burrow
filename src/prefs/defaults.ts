@@ -87,6 +87,10 @@ export function defaultPreferences(persona: Persona = 'general'): Preferences {
     idleAfterSeconds: 120,
     // Off until the user opts in and grants page access.
     captureText: false,
+    customCategories: [],
+    // Off until the user turns it on and Chrome grants the tabGroups permission.
+    useTabGroups: false,
+    groupMinTabs: 2,
     autoArchiveEveryMinutes: 60,
     autoArchiveAfterHours: 12,
     autoArchiveMaxPerRun: 20,

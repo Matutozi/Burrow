@@ -1,19 +1,20 @@
-import { useEffect, useId, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { DEFAULT_WEIGHTS, PERSONA_LABELS, PERSONA_PRIORITIES } from '../prefs/defaults';
 import { formatSiteRules, parseSiteRules } from '../prefs/siteRules';
 import {
   CONTENT_TYPE_LABELS,
   CONTENT_TYPES,
-  type IndexPolicy,
   type Persona,
   type Preferences,
-  type Priority,
   type ScoringWeights,
 } from '../prefs/types';
-import { cleanDomain, LIMITS } from '../prefs/validate';
+import { LIMITS } from '../prefs/validate';
+import { CategoryEditor, fromDrafts, toDrafts, type CategoryDraft } from './Categories';
+import { INDEX_OPTIONS, Invalid, parseDomains, PRIORITY_OPTIONS, Segmented, splitList } from './form';
 import { hasCaptureAccess } from '../archive/chromeApi';
 import { hasAlarmAccess, releaseCaptureAccess, requestAlarmAccess, requestCaptureAccess } from './chromeTabs';
-import { ARCHIVE_TEXT, AUTO_TEXT } from './format';
+import { hasGroupAccess, requestGroupAccess } from '../groups/chromeGroups';
+import { ARCHIVE_TEXT, AUTO_TEXT, GROUP_TEXT } from './format';
 
 interface Props {
   initial: Preferences;
@@ -41,60 +42,7 @@ const AUTO_FIELDS = [
   { key: 'autoArchiveMaxPerRun', label: 'At most this many tabs per check', limits: LIMITS.autoArchiveMaxPerRun },
 ] as const satisfies readonly { key: keyof Preferences; label: string; limits: { min: number; max: number } }[];
 
-function splitList(text: string): string[] {
-  return text
-    .split(/[,\n]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
-function parseDomains(text: string): { domains: string[]; invalid: string[] } {
-  const domains: string[] = [];
-  const invalid: string[] = [];
-  for (const entry of splitList(text)) {
-    const d = cleanDomain(entry);
-    if (d) domains.push(d);
-    else invalid.push(entry);
-  }
-  return { domains: [...new Set(domains)], invalid };
-}
-
-/** A row of choices built on native radio inputs, so keyboard and screen readers work for free. */
-function Segmented<T extends string>(props: {
-  label: string;
-  value: T;
-  options: readonly { value: T; label: string }[];
-  onChange: (v: T) => void;
-}) {
-  const name = useId();
-  return (
-    <div class="segmented" role="radiogroup" aria-label={props.label}>
-      {props.options.map((o) => (
-        <label class={props.value === o.value ? 'on' : ''}>
-          <input type="radio" name={name} value={o.value} checked={props.value === o.value} onChange={() => props.onChange(o.value)} />
-          <span>{o.label}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function Invalid({ items }: { items: string[] }) {
-  if (items.length === 0) return null;
-  return <small class="error-text">Not understood, will be skipped: {items.join('; ')}</small>;
-}
-
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Low' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high', label: 'High' },
-] as const satisfies readonly { value: Priority; label: string }[];
-
-const INDEX_OPTIONS = [
-  { value: 'never', label: 'Nothing' },
-  { value: 'title', label: 'Title' },
-  { value: 'full', label: 'Full text' },
-] as const satisfies readonly { value: IndexPolicy; label: string }[];
 
 export function Onboarding({ initial, onDone, onCancel }: Props) {
   const [step, setStep] = useState(0);
@@ -103,6 +51,7 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
   const [importantText, setImportantText] = useState(initial.alwaysImportant.join(', '));
   const [lowText, setLowText] = useState(initial.lowPriority.join(', '));
   const [rulesText, setRulesText] = useState(formatSiteRules(initial.siteRules));
+  const [categories, setCategories] = useState<CategoryDraft[]>(() => toDrafts(initial.customCategories));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   /** Whether Chrome currently grants page access. Null until checked. */
@@ -110,11 +59,34 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
   const [captureDenied, setCaptureDenied] = useState(false);
   const [alarmAccess, setAlarmAccess] = useState<boolean | null>(null);
   const [autoDenied, setAutoDenied] = useState(false);
+  const [groupAccess, setGroupAccess] = useState<boolean | null>(null);
+  const [groupsDenied, setGroupsDenied] = useState(false);
 
   useEffect(() => {
     void hasCaptureAccess().then(setCaptureAccess);
     void hasAlarmAccess().then(setAlarmAccess);
+    void hasGroupAccess().then(setGroupAccess);
   }, []);
+
+  const toggleGroups = (on: boolean) => {
+    setGroupsDenied(false);
+    if (!on) {
+      // Keep the permission: "Organise tabs" uses it too, and Chrome shows no warning for it.
+      update({ useTabGroups: false });
+      return;
+    }
+    requestGroupAccess().then(
+      (granted) => {
+        setGroupAccess(granted);
+        setGroupsDenied(!granted);
+        if (granted) update({ useTabGroups: true });
+      },
+      (err: unknown) => {
+        console.error('Burrow: tab groups permission request failed', err);
+        setGroupsDenied(true);
+      },
+    );
+  };
 
   const chooseMode = (mode: Preferences['mode']) => {
     setAutoDenied(false);
@@ -180,6 +152,7 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
         alwaysImportant: important.domains,
         lowPriority: low.domains,
         siteRules: rules.rules,
+        customCategories: fromDrafts(categories),
       });
     } catch {
       setSaveError(true);
@@ -234,6 +207,17 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
               </li>
             ))}
           </ul>
+          <CategoryEditor drafts={categories} onChange={setCategories} />
+          <label class="check">
+            <input
+              type="checkbox"
+              checked={prefs.useTabGroups && groupAccess !== false}
+              onChange={(e) => toggleGroups(e.currentTarget.checked)}
+            />
+            {GROUP_TEXT.useGroupsLabel}
+          </label>
+          <small class="muted">{GROUP_TEXT.useGroupsHelp}</small>
+          {groupsDenied && <p class="error-text">{GROUP_TEXT.useGroupsDenied}</p>}
         </section>
       )}
 
@@ -321,6 +305,28 @@ export function Onboarding({ initial, onDone, onCancel }: Props) {
               </li>
             ))}
           </ul>
+          {categories.some((c) => c.name.trim()) && (
+            <>
+              <h3 class="subhead">Your categories</h3>
+              <ul class="rows">
+                {categories
+                  .filter((c) => c.name.trim())
+                  .map((c) => (
+                    <li key={c.id}>
+                      <span>{c.name}</span>
+                      <Segmented
+                        label={`Save for ${c.name}`}
+                        value={c.indexPolicy}
+                        options={INDEX_OPTIONS}
+                        onChange={(indexPolicy) =>
+                          setCategories(categories.map((x) => (x.id === c.id ? { ...x, indexPolicy } : x)))
+                        }
+                      />
+                    </li>
+                  ))}
+              </ul>
+            </>
+          )}
           <label class="check">
             <input
               type="checkbox"

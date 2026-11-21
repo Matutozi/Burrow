@@ -3,6 +3,9 @@ import { loadPreferences, onPreferencesChanged, savePreferences } from '../prefs
 import type { Preferences } from '../prefs/types';
 import { ArchiveView, useArchive } from './Archive';
 import { LicenseView, useEntitlement } from './License';
+import { OrganiseView } from './Organise';
+import { requestGroupAccess } from '../groups/chromeGroups';
+import { GROUP_TEXT } from './format';
 import { Onboarding } from './Onboarding';
 import { TabList } from './TabList';
 import { Toast, type ToastMessage } from './Toast';
@@ -11,7 +14,7 @@ export function App() {
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   const [editing, setEditing] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [view, setView] = useState<'tabs' | 'archive' | 'license'>('tabs');
+  const [view, setView] = useState<'tabs' | 'archive' | 'license' | 'organise'>('tabs');
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const records = useArchive();
   const entitlement = useEntitlement();
@@ -58,6 +61,7 @@ export function App() {
       {view === 'archive' && (
         <ArchiveView prefs={prefs} records={records} notify={setToast} onBack={() => setView('tabs')} />
       )}
+      {view === 'organise' && <OrganiseView prefs={prefs} notify={setToast} onDone={() => setView('tabs')} />}
       {view === 'license' && <LicenseView ent={entitlement} notify={setToast} onBack={() => setView('tabs')} />}
       {view === 'tabs' && (
         <TabList
@@ -68,6 +72,13 @@ export function App() {
           onEditPreferences={() => setEditing(true)}
           onOpenArchive={() => setView('archive')}
           onOpenLicense={() => setView('license')}
+          onOrganise={() => {
+            // Must run inside the click. Chrome grants tabGroups without a prompt.
+            requestGroupAccess().then(
+              (granted) => (granted ? setView('organise') : setToast({ text: GROUP_TEXT.needAccess, error: true })),
+              () => setToast({ text: GROUP_TEXT.needAccess, error: true }),
+            );
+          }}
         />
       )}
       {toastView}

@@ -1,5 +1,5 @@
 import { createClassifier, hostOf, matchesDomain } from '../prefs/classify';
-import type { ContentType, Preferences } from '../prefs/types';
+import type { ContentType, CustomCategory, IndexPolicy, Preferences } from '../prefs/types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -18,6 +18,8 @@ export interface TabSignals {
   visitCount?: number;
   /** Total foreground time in ms. */
   activeMs?: number;
+  /** Name of the Chrome tab group the tab is in, when tab group support is on. */
+  groupTitle?: string;
 }
 
 /**
@@ -30,6 +32,7 @@ export type ScoreReason =
   | { code: 'lastOpened'; points: number; ageMs: number }
   | { code: 'activity'; points: number; visits: number; activeMs: number }
   | { code: 'priority'; points: number; contentType: ContentType; priority: 'high' | 'low' }
+  | { code: 'category'; points: number; name: string; priority: 'high' | 'low' }
   | { code: 'topic'; points: number; topic: string }
   | { code: 'lowPrioritySite'; points: number }
   | { code: 'pinned'; points: 0 }
@@ -38,6 +41,12 @@ export type ScoreReason =
 export interface TabScore {
   score: number;
   contentType: ContentType;
+  /** The user's own category this tab belongs to, if any. It overrides the content type's priority and save policy. */
+  category: { id: string; name: string } | null;
+  /** The tab's Chrome group name, when tab group support is on and the tab is in a named group. */
+  group: string | null;
+  /** What may be saved when this tab is archived: from its category if it has one, else its content type. */
+  indexPolicy: IndexPolicy;
   /** Protected tabs are never suggested for archiving, whatever their score. */
   protected: boolean;
   reasons: ScoreReason[];
@@ -60,6 +69,16 @@ export function createTopicMatcher(topics: string[]): (text: string) => string |
   return (text) => re.exec(text.toLowerCase())?.[1] ?? null;
 }
 
+/**
+ * Compiles the user's categories once. Returns the first category whose sites include the host or
+ * whose keywords appear in the title or address.
+ */
+export function createCategoryMatcher(categories: CustomCategory[]): (host: string | null, text: string) => CustomCategory | null {
+  if (categories.length === 0) return () => null;
+  const compiled = categories.map((c) => ({ c, inSite: domainMatcher(c.domains), mentions: createTopicMatcher(c.keywords) }));
+  return (host, text) => compiled.find(({ inSite, mentions }) => inSite(host) || mentions(text) !== null)?.c ?? null;
+}
+
 function domainMatcher(domains: string[]): (host: string | null) => boolean {
   if (domains.length === 0) return () => false;
   return (host) => host !== null && domains.some((d) => matchesDomain(host, d));
@@ -74,6 +93,8 @@ export function createScorer(prefs: Preferences): Scorer {
   const w = prefs.weights;
   const classify = createClassifier({ siteRules: prefs.siteRules, useBuiltIns: prefs.useBuiltInSiteLists });
   const matchTopic = createTopicMatcher(prefs.topics);
+  const matchCategory = createCategoryMatcher(prefs.customCategories);
+  const categoryByName = new Map(prefs.customCategories.map((c) => [c.name.toLowerCase(), c]));
   const isImportant = domainMatcher(prefs.alwaysImportant);
   const isLowPriority = domainMatcher(prefs.lowPriority);
   // Recency halves every third of the stale period, so a tab is at ~12% of max when it goes stale.
@@ -84,8 +105,22 @@ export function createScorer(prefs: Preferences): Scorer {
   function score(signals: TabSignals, now: number): TabScore {
     const contentType = classify(signals.url);
     const host = hostOf(signals.url);
+    const text = `${signals.title} ${signals.url}`;
+    const group = prefs.useTabGroups ? signals.groupTitle?.trim() || null : null;
+    // Putting a tab in a group named like a category is the clearest signal, so it is checked first.
+    const cat = (group ? categoryByName.get(group.toLowerCase()) : undefined) ?? matchCategory(host, text);
+    const category = cat ? { id: cat.id, name: cat.name } : null;
+    const indexPolicy = cat ? cat.indexPolicy : prefs.indexPolicy[contentType];
     if (isImportant(host)) {
-      return { score: 100, contentType, protected: true, reasons: [{ code: 'alwaysImportant', points: 0 }] };
+      return {
+        score: 100,
+        contentType,
+        category,
+        group,
+        indexPolicy,
+        protected: true,
+        reasons: [{ code: 'alwaysImportant', points: 0 }],
+      };
     }
 
     const reasons: ScoreReason[] = [];
@@ -111,14 +146,15 @@ export function createScorer(prefs: Preferences): Scorer {
       reasons.push({ code: 'activity', points: Math.round(activity), visits, activeMs });
     }
 
-    const priority = prefs.contentPriority[contentType];
+    // A user category replaces the content type's priority, so the two never stack.
+    const priority = cat ? cat.priority : prefs.contentPriority[contentType];
     if (priority !== 'normal') {
       const points = priority === 'high' ? w.priorityPoints : -w.priorityPoints;
       total += points;
-      reasons.push({ code: 'priority', points, contentType, priority });
+      reasons.push(cat ? { code: 'category', points, name: cat.name, priority } : { code: 'priority', points, contentType, priority });
     }
 
-    const topic = matchTopic(`${signals.title} ${signals.url}`);
+    const topic = matchTopic(text);
     if (topic) {
       total += w.topicPoints;
       reasons.push({ code: 'topic', points: w.topicPoints, topic });
@@ -135,6 +171,9 @@ export function createScorer(prefs: Preferences): Scorer {
     return {
       score: Math.round(Math.min(100, Math.max(0, total))),
       contentType,
+      category,
+      group,
+      indexPolicy,
       protected: signals.pinned || signals.audible || signals.active,
       reasons,
     };

@@ -64,8 +64,25 @@ export interface SiteRule {
   type: ContentType;
 }
 
+/**
+ * A kind of page the user defines, such as "IEEE opportunities" or "Travel grants". A tab belongs
+ * to it when its site is listed or its title or address mentions a keyword. User categories are
+ * checked before the built-in content types, first match wins.
+ */
+export interface CustomCategory {
+  /** Stable id, so renaming keeps archived pages linked. */
+  id: string;
+  name: string;
+  priority: Priority;
+  indexPolicy: IndexPolicy;
+  /** Sites that belong to this category (subdomains included). */
+  domains: string[];
+  /** Lowercase words or phrases matched as whole words in the title or address. */
+  keywords: string[];
+}
+
 /** Current schema version. Bump it and add a migration in validate.ts when the shape changes. */
-export const PREFERENCES_VERSION = 3;
+export const PREFERENCES_VERSION = 5;
 
 export interface Preferences {
   version: typeof PREFERENCES_VERSION;
@@ -100,6 +117,15 @@ export interface Preferences {
    * optional `scripting` and host permissions, which the user grants when turning this on. (v2)
    */
   captureText: boolean;
+  /** The user's own page categories, checked before the built-in types. (v4) */
+  customCategories: CustomCategory[];
+  /**
+   * Read Chrome tab group names: a tab in a group named like one of the user's categories belongs
+   * to it, and archived pages remember their group. Needs the optional tabGroups permission. (v5)
+   */
+  useTabGroups: boolean;
+  /** "Organise tabs" only proposes groups with at least this many tabs. (v5) */
+  groupMinTabs: number;
   /** Automatic mode: minutes between checks. (v3) */
   autoArchiveEveryMinutes: number;
   /** Automatic mode: only tabs untouched for at least this many hours are archived. (v3) */

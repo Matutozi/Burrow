@@ -43,7 +43,8 @@ export default defineManifest((env) => ({
   permissions: ['tabs', 'storage', 'sidePanel', 'idle'],
   // Optional ones are asked for only when the user turns on the feature that needs them.
   // scripting: only for "save page text". alarms: only for automatic archiving.
-  optional_permissions: ['scripting', 'alarms'],
+  // tabGroups: only for tab group support and "Organise tabs".
+  optional_permissions: ['scripting', 'alarms', 'tabGroups'],
   optional_host_permissions: ['https://*/*', 'http://*/*'],
   ...(env.mode === 'production' ? { content_security_policy: { extension_pages: CSP_PROD } } : {}),
 }));

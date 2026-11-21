@@ -2,6 +2,7 @@
  * Thin Chrome wrappers shared by the side panel and the service worker. Logic stays in the pure
  * modules next to this file.
  */
+import { restoreTabGroup } from '../groups/chromeGroups';
 import { mayArchive } from '../license/store';
 import type { Preferences } from '../prefs/types';
 import { CAPTURE_LIMITS, CAPTURE_PERMISSIONS, captureTexts, extractPageText } from './capture';
@@ -21,16 +22,15 @@ export async function closeTabs(ids: number[]): Promise<number[]> {
   }
 }
 
-async function openOne(url: string, active: boolean, place?: TabPlace): Promise<void> {
+async function openOne(url: string, active: boolean, place?: TabPlace): Promise<chrome.tabs.Tab> {
   if (place) {
     try {
-      await chrome.tabs.create({ url, active, windowId: place.windowId, index: place.index });
-      return;
+      return await chrome.tabs.create({ url, active, windowId: place.windowId, index: place.index });
     } catch {
       // The original window is gone. Open it in the current window instead.
     }
   }
-  await chrome.tabs.create({ url, active });
+  return chrome.tabs.create({ url, active });
 }
 
 /** Reopens archived pages in the background, at their old place when known. Rejects if any fails. */
@@ -38,7 +38,7 @@ export function pageOpener(places: TabPlaces = {}, active = false) {
   return async (records: ArchiveRecord[]): Promise<void> => {
     // Lowest index first so earlier tabs don't shift the positions of later ones.
     const sorted = [...records].sort((a, b) => (places[a.url]?.index ?? 0) - (places[b.url]?.index ?? 0));
-    for (const r of sorted) await openOne(r.url, active, places[r.url]);
+    for (const r of sorted) await restoreTabGroup(await openOne(r.url, active, places[r.url]), r.group);
   };
 }
 

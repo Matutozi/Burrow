@@ -1,6 +1,6 @@
 # Chrome Web Store Listing: Burrow
 
-> Last Updated: 2026-11-21 · Version 1.1.0 · Ready to submit (see [Submission checklist](#submission-checklist))
+> Last Updated: 2026-11-21 · Version 1.3.0 · Ready to submit (see [Submission checklist](#submission-checklist))
 
 ## Store Listing
 
@@ -11,11 +11,13 @@
 **Detailed Description:**
 Burrow gives every open tab a score from 0 to 100, based on how recently and how much you actually use it, and tells you why, so you can see at a glance which tabs matter and which are clutter.
 
-Tell Burrow what matters to you: the kind of work you do, which types of pages are important, the topics you follow, and the sites you always or never care about. Scores follow your preferences, and you can fine-tune every part of the formula.
+Tell Burrow what matters to you: the kind of work you do, which types of pages are important, your own categories (like "IEEE opportunities" or "Travel grants", spotted by site or keyword), the topics you follow, and the sites you always or never care about. Scores follow your preferences, and you can fine-tune every part of the formula.
 
 How to use it: click the Burrow icon to open the side panel, answer a few setup questions, and your tabs appear sorted into "Clutter" and "Keeping", each with a score and a short reason. Click any tab to jump to it.
 
 Archive instead of close: archive one clutter tab or all of them at once. Burrow saves each page's title and address before closing the tab, every archive can be undone, and the Archive view lets you search, reopen or delete archived pages. Email, banking and health pages are never archived by default. You can export all your data as a file, import it again on any device, or delete everything at any time, and every import and delete can be undone.
+
+Organise into tab groups: with 100+ tabs open, click Organise and Burrow proposes Chrome tab groups (your own categories like "Courses" first, then Docs, Videos and more). Review the preview, rename, recolour, skip or move anything, then confirm. Nothing changes until you do, and it can be undone. Burrow can also use your existing groups: a tab in a group named "Courses" counts as your Courses category, and archived tabs go back into their group when reopened.
 
 Search from the address bar: type "burrow", a space and a few words to find any archived page without opening the side panel. You'll never need a bookmark for "that page I had open last week".
 
@@ -57,6 +59,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | tabs | permissions | Reads the title, address and last-used time of open tabs to calculate each tab's importance score shown in the side panel, and switches to a tab when the user clicks it in the list. |
 | storage | permissions | Saves the user's setup choices (priorities, topics, site lists, scoring settings) so scores reflect their preferences, and stores archived pages (title, address, date) on the device so the user can search and reopen them. |
 | sidePanel | permissions | Burrow's whole interface (setup and the scored tab list) is displayed in Chrome's side panel. |
+| tabGroups | optional_permissions | Requested only when the user clicks "Organise" or turns on "Use my Chrome tab groups". Reads tab group names and colours to label tabs and suggest groups, and creates and names the groups the user confirms in a preview. Archived pages remember their group so they can be put back into it when reopened. |
 | alarms | optional_permissions | Requested only when the user chooses "Archive automatically". Wakes the background service worker on the user's chosen schedule (default hourly) to archive clutter, instead of keeping it running or polling. |
 | scripting | optional_permissions | Requested only when the user turns on "Save the text of Full text pages". When the user archives a tab, Burrow runs a small function in that tab to read its visible text, so the archived page can be searched by content later. Not used for any other purpose, and never on pages with password fields. |
 | https://\*/\*, http://\*/\* | optional_host_permissions | Requested together with scripting, only when the user opts in to page-text saving. Needed because the user may archive a tab on any website. Used only when the user archives a tab, and given back to Chrome when the setting is turned off. Not requested at install. |
@@ -113,23 +116,25 @@ Support: https://github.com/Matutozi/Burrow/issues
 | 0.6.0 | 2026-11-20 | Address-bar search of the archive (omnibox keyword "burrow", no permission needed); import of export files with newest-wins merge and undo; "Delete all Burrow data" with undo. No new permissions. Not submitted. |
 | 1.0.0 | 2026-11-20 | Store release candidate: icons, privacy policy link in the side panel, reproducible store zip with pre-flight checks (`npm run package`), CI build artifact. No new permissions. |
 | 1.1.0 | 2026-11-21 | 14-day free trial, then a one-time license (verified offline by signature) for archiving new tabs and automatic cleanup. Reopening, search, export, import and delete always free. No new permissions, no network calls. |
+| 1.2.0 | 2026-11-21 | User-defined categories (name, priority, save policy, matched by site or keyword), checked before built-in types; archived pages searchable by category. Preferences v4. No new permissions or data leaving the device. |
+| 1.3.0 | 2026-11-21 | Organise tabs into Chrome tab groups with an editable preview and undo; optional use of existing groups as categories; archived pages remember and restore their group. New optional permission: tabGroups. Preferences v5, archive records v4. |
 
 ## Submission Checklist
 Done in the code:
 - [x] Manifest V3, `incognito: "not_allowed"`, production CSP with `connect-src 'none'`
 - [x] No remote code, no network APIs, no source maps (enforced by `npm run package` and CI)
-- [x] Only `tabs`, `storage`, `sidePanel` and `idle` at install; `alarms`, `scripting` and site access are optional and requested only when the user turns on the feature that needs them
+- [x] Only `tabs`, `storage`, `sidePanel` and `idle` at install; `alarms`, `tabGroups`, `scripting` and site access are optional and requested only when the user turns on the feature that needs them
 - [x] Every permission justified above; data use table matches PRIVACY.md
 - [x] Icons at 16, 32, 48 and 128 px
 - [x] Users can export, import and delete all data in the app
 - [x] MIT LICENSE file
 
 Owner to do before submitting:
-- [ ] Load `release/burrow-1.1.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
+- [ ] Load `release/burrow-1.3.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
 - [ ] Make the GitHub repository public (or host PRIVACY.md elsewhere and update the URL in this file and `src/sidepanel/DataControls.tsx`)
 - [ ] Capture 3 screenshots at 1280×800 (see Screenshot Notes)
 - [ ] Fill in Publisher Name and Contact Email; verify the email in the developer dashboard
 - [ ] Back up `.license/private-key.json` (password manager or encrypted drive) and never commit it
 - [ ] Create the store page (e.g. Lemon Squeezy), set `PURCHASE_URL` in `src/license/config.ts`, and plan how keys reach buyers (`npm run license -- issue <orderId>`)
 - [ ] Tick "Offers in-app purchases" in the dashboard
-- [ ] Upload `release/burrow-1.1.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit
+- [ ] Upload `release/burrow-1.3.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit

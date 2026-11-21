@@ -4,6 +4,7 @@ import {
   CONTENT_TYPES,
   PREFERENCES_VERSION,
   type ContentType,
+  type CustomCategory,
   type IndexPolicy,
   type Persona,
   type Preferences,
@@ -29,6 +30,11 @@ export const LIMITS = {
   maxTopicLength: 60,
   maxDomains: 500,
   maxSiteRules: 500,
+  maxCategories: 50,
+  maxCategoryNameLength: 40,
+  maxCategoryDomains: 100,
+  maxCategoryKeywords: 100,
+  groupMinTabs: { min: 1, max: 20 },
 } as const;
 
 const PERSONAS: readonly Persona[] = ['student', 'developer', 'researcher', 'creator', 'general'];
@@ -96,6 +102,32 @@ function siteRules(v: unknown): SiteRule[] {
   return [...byDomain].slice(0, LIMITS.maxSiteRules).map(([domain, type]) => ({ domain, type }));
 }
 
+const CATEGORY_ID_RE = /^[a-z0-9-]{1,40}$/;
+
+function customCategories(v: unknown): CustomCategory[] {
+  if (!Array.isArray(v)) return [];
+  const out: CustomCategory[] = [];
+  const ids = new Set<string>();
+  for (const [i, c] of v.slice(0, LIMITS.maxCategories).entries()) {
+    if (!isRecord(c) || typeof c.name !== 'string') continue;
+    const name = c.name.trim().replace(/\s+/g, ' ').slice(0, LIMITS.maxCategoryNameLength);
+    if (!name) continue;
+    // Ids link archived pages to their category. Repair a missing or clashing one rather than drop the category.
+    let id = typeof c.id === 'string' && CATEGORY_ID_RE.test(c.id) ? c.id : `cat-${i}`;
+    while (ids.has(id)) id = `${id}-x`.slice(-40);
+    ids.add(id);
+    out.push({
+      id,
+      name,
+      priority: oneOf(c.priority, PRIORITIES, 'normal'),
+      indexPolicy: oneOf(c.indexPolicy, INDEX_POLICIES, 'title'),
+      domains: domainList(c.domains).slice(0, LIMITS.maxCategoryDomains),
+      keywords: topicList(c.keywords).slice(0, LIMITS.maxCategoryKeywords),
+    });
+  }
+  return out;
+}
+
 function weights(v: unknown): ScoringWeights {
   const src = isRecord(v) ? v : {};
   const out = { ...DEFAULT_WEIGHTS };
@@ -118,6 +150,10 @@ function migrate(raw: Raw): Raw {
   // v2 -> v3: automatic archiving became real. Before, "auto" did nothing, so nobody has agreed to
   // tabs closing on their own yet. Start everyone on "ask first"; they can switch it on again.
   if (version < 3) out = { ...out, mode: 'suggest' };
+  // v3 -> v4: added customCategories. Nobody has any yet.
+  if (version < 4) out = { ...out, customCategories: [] };
+  // v4 -> v5: tab group support (off until the user opts in) and the organise threshold.
+  if (version < 5) out = { ...out, useTabGroups: false };
   return out;
 }
 
@@ -146,6 +182,9 @@ export function sanitizePreferences(input: unknown): Preferences {
     trackActivity: bool(raw.trackActivity, base.trackActivity),
     idleAfterSeconds: Math.round(clampNumber(raw.idleAfterSeconds, LIMITS.idleAfterSeconds, base.idleAfterSeconds)),
     captureText: bool(raw.captureText, base.captureText),
+    customCategories: customCategories(raw.customCategories),
+    useTabGroups: bool(raw.useTabGroups, base.useTabGroups),
+    groupMinTabs: Math.round(clampNumber(raw.groupMinTabs, LIMITS.groupMinTabs, base.groupMinTabs)),
     autoArchiveEveryMinutes: Math.round(
       clampNumber(raw.autoArchiveEveryMinutes, LIMITS.autoArchiveEveryMinutes, base.autoArchiveEveryMinutes),
     ),

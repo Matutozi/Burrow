@@ -128,7 +128,7 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
                 <span class="body">
                   <span class="title">{r.title || r.url}</span>
                   <span class="reason">
-                    <span class="type">{CONTENT_TYPE_LABELS[r.contentType]}</span>
+                    <span class="type">{r.category ?? CONTENT_TYPE_LABELS[r.contentType]}</span>
                     {r.saved === 'full' && <span class="type">{ARCHIVE_TEXT.fullText}</span>}
                     {hostOf(r.url)} · {formatDate(r.archivedAt)}
                   </span>

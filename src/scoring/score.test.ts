@@ -141,3 +141,89 @@ describe('createScorer', () => {
     expect(createScorer(tuned).score(tab({ visitCount: 1 }), NOW).score).toBe(78);
   });
 });
+
+describe('custom categories', () => {
+  const categories = [
+    {
+      id: 'ieee',
+      name: 'IEEE opportunities',
+      priority: 'high' as const,
+      indexPolicy: 'full' as const,
+      domains: ['ieee.org'],
+      keywords: ['call for papers'],
+    },
+    {
+      id: 'travel',
+      name: 'Travel grant',
+      priority: 'low' as const,
+      indexPolicy: 'never' as const,
+      domains: [],
+      keywords: ['travel grant', 'travel award'],
+    },
+  ];
+  const prefs = { ...defaultPreferences(), customCategories: categories };
+  const scorer = createScorer(prefs);
+
+  it('matches by site or keyword, first category wins, and labels the tab', () => {
+    expect(scorer.score(tab({ url: 'https://conf.ieee.org/x', title: 'Home' }), NOW).category).toEqual({
+      id: 'ieee',
+      name: 'IEEE opportunities',
+    });
+    expect(scorer.score(tab({ url: 'https://uni.edu/a', title: 'Apply for a Travel Grant now' }), NOW).category?.id).toBe(
+      'travel',
+    );
+    expect(scorer.score(tab({ url: 'https://uni.edu/a', title: 'Grants and travel' }), NOW).category).toBeNull();
+    expect(scorer.score(tab({ url: 'https://x.org/ieee', title: 'Call for papers: travel grant' }), NOW).category?.id).toBe(
+      'ieee',
+    );
+  });
+
+  it("uses the category's priority instead of the content type's, never both", () => {
+    const withDocsHigh = createScorer({ ...prefs, contentPriority: { ...prefs.contentPriority, docs: 'high' } });
+    const r = withDocsHigh.score(tab({ url: 'https://docs.ieee.org/reference/x', title: 'x' }), NOW);
+    const priorityReasons = r.reasons.filter((x) => x.code === 'priority' || x.code === 'category');
+    expect(priorityReasons).toEqual([{ code: 'category', points: 20, name: 'IEEE opportunities', priority: 'high' }]);
+    const low = withDocsHigh.score(tab({ url: 'https://uni.edu/travel-grant', title: 'travel grant' }), NOW);
+    expect(low.reasons).toContainEqual({ code: 'category', points: -20, name: 'Travel grant', priority: 'low' });
+  });
+
+  it("uses the category's save policy, else the content type's", () => {
+    expect(scorer.score(tab({ url: 'https://uni.edu/a', title: 'travel award' }), NOW).indexPolicy).toBe('never');
+    expect(scorer.score(tab({ url: 'https://ieee.org', title: 'x' }), NOW).indexPolicy).toBe('full');
+    expect(scorer.score(tab({ url: 'https://mail.google.com', title: 'x' }), NOW).indexPolicy).toBe('never');
+  });
+});
+
+describe('tab groups', () => {
+  const courses = {
+    id: 'courses',
+    name: 'Courses',
+    priority: 'high' as const,
+    indexPolicy: 'full' as const,
+    domains: [],
+    keywords: [],
+  };
+  const travel = { ...courses, id: 'travel', name: 'Travel grant', priority: 'low' as const, keywords: ['grant'] };
+
+  it('puts a tab in the category named like its group, ahead of keyword matches', () => {
+    const scorer = createScorer({ ...defaultPreferences(), useTabGroups: true, customCategories: [travel, courses] });
+    const r = scorer.score(tab({ url: 'https://uni.edu/x', title: 'grant writing', groupTitle: ' courses ' }), NOW);
+    expect(r.category?.id).toBe('courses');
+    expect(r.group).toBe('courses');
+    expect(r.indexPolicy).toBe('full');
+  });
+
+  it('keeps an unmatched group name as a label without changing priority', () => {
+    const scorer = createScorer({ ...defaultPreferences(), useTabGroups: true });
+    const r = scorer.score(tab({ url: 'https://uni.edu/x', title: 'x', groupTitle: 'Thesis' }), NOW);
+    expect(r.group).toBe('Thesis');
+    expect(r.category).toBeNull();
+  });
+
+  it('ignores groups when tab group support is off', () => {
+    const scorer = createScorer({ ...defaultPreferences(), customCategories: [courses] });
+    const r = scorer.score(tab({ url: 'https://uni.edu/x', title: 'x', groupTitle: 'Courses' }), NOW);
+    expect(r.group).toBeNull();
+    expect(r.category).toBeNull();
+  });
+});

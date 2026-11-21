@@ -76,6 +76,7 @@ These rules are non-negotiable. Every change must follow them.
   (`omnibox.ts`), export, import (`importData.ts`) and delete-all with undo (`allData.ts`)
 - `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
+- `src/groups/`: tab group basics (`info.ts`), the pure "Organise tabs" planner (`organise.ts`), Chrome wrappers (`chromeGroups.ts`)
 - `src/license/`: offline key verification (`key.ts`), trial/entitlement rules (`entitlement.ts`), license storage (`store.ts`)
 - `scripts/`: dependency-free icon drawing (`icons.mjs`), store packaging with pre-flight checks (`package.mjs`),
   seller-side license tool (`license.mjs`)

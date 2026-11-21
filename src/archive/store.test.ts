@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRecord, recordId, sanitizeRecord, searchRecords, type ArchiveRecord } from './record';
+import { buildRecord, recordId, sanitizeRecord, searchRecords, type ArchiveRecord, ARCHIVE_VERSION } from './record';
 import { archiveTabs, listArchive, removeRecords, restoreRecords, undoArchive, type ArchiveArea, type ArchiveRequest } from './store';
 
 class FakeArea implements ArchiveArea {
@@ -55,7 +55,7 @@ describe('archive records', () => {
     expect(sanitizeRecord('junk', 'x')).toBeNull();
     expect(sanitizeRecord({ url: 'javascript:alert(1)' }, 'x')).toBeNull();
     expect(sanitizeRecord({ url: 'https://a.com', score: 'NaN', contentType: 'nope', archivedAt: -4 }, 'x')).toEqual({
-      v: 2,
+      v: ARCHIVE_VERSION,
       id: 'x',
       url: 'https://a.com',
       title: '',

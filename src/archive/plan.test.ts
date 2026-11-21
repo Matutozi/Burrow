@@ -6,6 +6,7 @@ import { createScorer } from '../scoring/score';
 import { mergeAutoRun, sanitizeAutoRun, type AutoArchiveRun } from './autoRun';
 import { planArchive } from './plan';
 import type { ArchiveRecord } from './record';
+import { ARCHIVE_VERSION } from './record';
 import { reconcileUndo } from './store';
 
 const NOW = 1_000_000_000_000;
@@ -110,7 +111,7 @@ describe('planArchive', () => {
 });
 
 const rec = (id: string, archivedAt: number, title = id): ArchiveRecord => ({
-  v: 2,
+  v: ARCHIVE_VERSION,
   id,
   url: `https://${id}.com`,
   title,

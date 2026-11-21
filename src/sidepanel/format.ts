@@ -27,6 +27,8 @@ function reasonLabel(r: ScoreReason): string {
     }
     case 'priority':
       return `${CONTENT_TYPE_LABELS[r.contentType].toLowerCase()}: ${r.priority} priority`;
+    case 'category':
+      return `${r.name}: ${r.priority} priority`;
     case 'topic':
       return `matches "${r.topic}"`;
     case 'lowPrioritySite':
@@ -163,4 +165,50 @@ export const LICENSE_TEXT = {
   offline: 'Keys are checked on this device. Burrow never contacts a server to verify them.',
   lockedToast: 'Your free trial has ended. Enter a license key to keep archiving.',
   back: 'Back',
+};
+
+export const GROUP_TEXT = {
+  organiseButton: 'Organise',
+  title: 'Organise tabs',
+  summary: (grouped: number, groups: number, left: number, untouched: number) =>
+    `Burrow suggests ${plural(groups, 'group')} for ${plural(grouped, 'tab')}. ${plural(left, 'tab')} would stay ungrouped` +
+    (untouched > 0 ? `, and ${untouched} pinned or already grouped ${untouched === 1 ? 'tab is' : 'tabs are'} left as they are.` : '.'),
+  intro: 'Nothing changes until you confirm. Rename groups, change colours, untick a group to skip it, or move any tab.',
+  noGroup: 'No group',
+  ungroupedHeading: (n: number) => `Not grouped (${n})`,
+  groupName: 'Group name',
+  colour: 'Colour',
+  include: 'Create this group',
+  moveTo: 'Move to',
+  addGroup: '+ New group',
+  newGroupName: 'New group',
+  confirm: (n: number) => `Create ${plural(n, 'group')}`,
+  cancel: 'Cancel',
+  nothing: 'No groups to suggest. Your tabs are already grouped, pinned, or too varied.',
+  needAccess: 'Burrow needs permission to create and name tab groups. Chrome grants it without a prompt; click Organise again.',
+  done: (created: number, extended: number, skipped: number) =>
+    [
+      created > 0 ? `Created ${plural(created, 'group')}` : '',
+      extended > 0 ? `added to ${plural(extended, 'existing group')}` : '',
+      skipped > 0 ? `${plural(skipped, 'tab')} had changed and ${skipped === 1 ? 'was' : 'were'} left alone` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Nothing was grouped',
+  undone: 'Groups undone.',
+  failed: 'Could not create the groups. Nothing was changed.',
+  useGroupsLabel: 'Use my Chrome tab groups',
+  useGroupsHelp:
+    'A tab in a group named like one of your categories (for example "Courses") belongs to it, and archived tabs go back into their group when reopened. Chrome grants this without a prompt.',
+  useGroupsDenied: 'Chrome did not allow access to tab groups.',
+  colours: {
+    grey: 'Grey',
+    blue: 'Blue',
+    red: 'Red',
+    yellow: 'Yellow',
+    green: 'Green',
+    pink: 'Pink',
+    purple: 'Purple',
+    cyan: 'Cyan',
+    orange: 'Orange',
+  } as Record<string, string>,
 };

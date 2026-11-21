@@ -75,14 +75,14 @@ describe('sanitizePreferences', () => {
 describe('migration', () => {
   it('upgrades v1 data with page-text capture off', () => {
     const p = sanitizePreferences({ version: 1, topics: ['kept'], captureText: true });
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(5);
     expect(p.captureText).toBe(false);
     expect(p.topics).toEqual(['kept']);
   });
 
   it('upgrades v2 data to v3 with automatic archiving off until the user turns it on again', () => {
     const p = sanitizePreferences({ version: 2, mode: 'auto', captureText: true });
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(5);
     expect(p.mode).toBe('suggest');
     expect(p.captureText).toBe(true);
     expect(p.autoArchiveMaxPerRun).toBe(20);
@@ -97,6 +97,64 @@ describe('migration', () => {
   it('keeps captureText for v2 data', () => {
     expect(sanitizePreferences({ version: 2, captureText: true }).captureText).toBe(true);
     expect(sanitizePreferences({ version: 2, captureText: 'yes' }).captureText).toBe(false);
+  });
+});
+
+describe('tab group preferences (v5)', () => {
+  it('upgrades v4 data with tab groups off', () => {
+    const p = sanitizePreferences({ version: 4, useTabGroups: true });
+    expect(p.version).toBe(5);
+    expect(p.useTabGroups).toBe(false);
+    expect(p.groupMinTabs).toBe(2);
+  });
+
+  it('keeps and clamps v5 values', () => {
+    const p = sanitizePreferences({ version: 5, useTabGroups: true, groupMinTabs: 99 });
+    expect(p.useTabGroups).toBe(true);
+    expect(p.groupMinTabs).toBe(20);
+  });
+});
+
+describe('custom categories', () => {
+  it('starts empty for older data', () => {
+    expect(sanitizePreferences({ version: 3, customCategories: [{ name: 'x' }] }).customCategories).toEqual([]);
+  });
+
+  it('cleans names, sites, keywords and choices, and repairs ids', () => {
+    const p = sanitizePreferences({
+      version: 4,
+      customCategories: [
+        {
+          id: 'ieee',
+          name: '  IEEE   opportunities ',
+          priority: 'high',
+          indexPolicy: 'full',
+          domains: ['https://www.IEEE.org/x', 'not a site'],
+          keywords: [' Call for Papers ', 'IEEE', 'ieee', 42],
+        },
+        { id: 'ieee', name: 'Travel grant', priority: 'urgent', indexPolicy: 'everything', domains: 'x', keywords: null },
+        { name: '   ' },
+        'junk',
+        { id: 'BAD ID!', name: 'x'.repeat(80) },
+      ],
+    });
+    expect(p.customCategories).toEqual([
+      {
+        id: 'ieee',
+        name: 'IEEE opportunities',
+        priority: 'high',
+        indexPolicy: 'full',
+        domains: ['ieee.org'],
+        keywords: ['call for papers', 'ieee'],
+      },
+      { id: 'ieee-x', name: 'Travel grant', priority: 'normal', indexPolicy: 'title', domains: [], keywords: [] },
+      { id: 'cat-4', name: 'x'.repeat(40), priority: 'normal', indexPolicy: 'title', domains: [], keywords: [] },
+    ]);
+  });
+
+  it('caps the number of categories', () => {
+    const many = Array.from({ length: 80 }, (_, i) => ({ id: `c${i}`, name: `C${i}` }));
+    expect(sanitizePreferences({ version: 4, customCategories: many }).customCategories).toHaveLength(50);
   });
 });
 

@@ -5,6 +5,7 @@
 import { activityFor, type ActivityState } from '../activity/tracker';
 import type { Preferences } from '../prefs/types';
 import type { Scorer, TabSignals } from '../scoring/score';
+import type { GroupMap } from '../groups/info';
 import { archiveBlocker } from './record';
 import type { ArchiveRequest } from './store';
 
@@ -26,9 +27,10 @@ export interface ArchivePlan {
   readable: number[];
 }
 
-export function signalsOf(tab: chrome.tabs.Tab, activity: ActivityState, now: number): TabSignals {
+export function signalsOf(tab: chrome.tabs.Tab, activity: ActivityState, now: number, groups?: GroupMap): TabSignals {
   const used = tab.id === undefined ? undefined : activityFor(activity, tab.id, now);
   return {
+    groupTitle: groups?.get(tab.groupId)?.title,
     url: tab.url ?? '',
     title: tab.title ?? '',
     lastAccessed: tab.lastAccessed ?? now,
@@ -45,6 +47,8 @@ export interface PlanOptions {
   prefs: Preferences;
   activity: ActivityState;
   now: number;
+  /** Open tab groups, when tab group support is on. */
+  groups?: GroupMap;
   /**
    * Automatic mode adds extra guards: a minimum untouched time, a per-run cap, no pages that
    * can't be archived, and never closing the last tab of a window.
@@ -58,15 +62,15 @@ export interface PlanOptions {
  * tab, so windows can be counted.
  */
 export function planArchive(tabs: chrome.tabs.Tab[], opts: PlanOptions, allTabs: chrome.tabs.Tab[] = tabs): ArchivePlan {
-  const { scorer, prefs, activity, now, auto = false } = opts;
+  const { scorer, prefs, activity, now, groups, auto = false } = opts;
   const minAgeMs = prefs.autoArchiveAfterHours * HOUR_MS;
 
   let picked = tabs.flatMap((tab) => {
     if (tab.id === undefined || tab.incognito) return [];
-    const result = scorer.score(signalsOf(tab, activity, now), now);
+    const result = scorer.score(signalsOf(tab, activity, now, groups), now);
     if (!scorer.isArchiveCandidate(result)) return [];
     const url = tab.url ?? '';
-    const policy = prefs.indexPolicy[result.contentType];
+    const policy = result.indexPolicy;
     if (auto) {
       if (archiveBlocker(url, policy) !== null) return [];
       if (tab.lastAccessed === undefined || now - tab.lastAccessed < minAgeMs) return [];
@@ -95,7 +99,15 @@ export function planArchive(tabs: chrome.tabs.Tab[], opts: PlanOptions, allTabs:
     places[url] = { windowId: tab.windowId, index: tab.index };
     // Sleeping (discarded) tabs have no page loaded, so there is nothing to read from them.
     if (policy === 'full' && !tab.discarded && archiveBlocker(url, 'full') === null) readable.push(id);
-    return { tabId: id, input: { url, title: tab.title ?? '', contentType: result.contentType, score: result.score }, policy };
+    const input = {
+      url,
+      title: tab.title ?? '',
+      contentType: result.contentType,
+      score: result.score,
+      category: result.category?.name,
+      group: groups?.get(tab.groupId),
+    };
+    return { tabId: id, input, policy };
   });
   return { requests, places, readable };
 }

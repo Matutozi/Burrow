@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { captureTexts, cleanText, mapLimit, withTimeout } from './capture';
-import { buildRecord, createArchiveSearch, sanitizeRecord, textSnippet, withoutText } from './record';
+import { buildRecord, createArchiveSearch, sanitizeRecord, textSnippet, withoutText, ARCHIVE_VERSION } from './record';
 
 describe('cleanText', () => {
   it('collapses whitespace and rejects non-strings', () => {
@@ -65,7 +65,7 @@ describe('records with page text', () => {
   });
 
   it('reads v1 records and drops text that is not marked full', () => {
-    expect(sanitizeRecord({ v: 1, url: 'https://a.com', saved: 'title' }, 'x')).toMatchObject({ v: 2, saved: 'title' });
+    expect(sanitizeRecord({ v: 1, url: 'https://a.com', saved: 'title' }, 'x')).toMatchObject({ v: ARCHIVE_VERSION, saved: 'title' });
     expect(sanitizeRecord({ url: 'https://a.com', saved: 'title', text: 'leak' }, 'x')).not.toHaveProperty('text');
     expect(sanitizeRecord({ url: 'https://a.com', saved: 'full', text: 42 }, 'x')?.saved).toBe('title');
   });
@@ -88,5 +88,20 @@ describe('records with page text', () => {
     expect(snip).toMatch(/^….*quokka.*…$/);
     expect(textSnippet(rec, 'post')).toBeNull();
     expect(textSnippet(other, 'quokka')).toBeNull();
+  });
+
+  it('keeps the category name and finds pages by it', async () => {
+    const r = await buildRecord({ ...input, title: 'Deadline soon', category: '  IEEE opportunities ' }, 'title', 1);
+    expect(r?.category).toBe('IEEE opportunities');
+    expect(createArchiveSearch(r ? [r] : [])('ieee')).toHaveLength(1);
+    expect(await buildRecord({ ...input, category: '' }, 'title', 1)).not.toHaveProperty('category');
+    expect(sanitizeRecord({ url: 'https://a.com', category: 42 }, 'x')).not.toHaveProperty('category');
+  });
+
+  it('keeps the tab group and finds pages by its name', async () => {
+    const r = await buildRecord({ ...input, group: { title: 'Courses', color: 'blue' } }, 'title', 1);
+    expect(r?.group).toEqual({ title: 'Courses', color: 'blue' });
+    expect(createArchiveSearch(r ? [r] : [])('courses')).toHaveLength(1);
+    expect(sanitizeRecord({ url: 'https://a.com', group: { title: 5 } }, 'x')).not.toHaveProperty('group');
   });
 });

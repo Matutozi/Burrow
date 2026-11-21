@@ -8,6 +8,7 @@ import { resolveEntered, suggest } from '../archive/omnibox';
 import { planArchive } from '../archive/plan';
 import { createArchiveSearch, type ArchiveRecord, type ArchiveSearch } from '../archive/record';
 import { listArchive, RECORD_PREFIX } from '../archive/store';
+import { readGroups } from '../groups/chromeGroups';
 import { ensureTrialStarted } from '../license/store';
 import { loadPreferences, onPreferencesChanged } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
@@ -69,7 +70,8 @@ async function autoArchive(): Promise<void> {
     chrome.tabs.query({}),
     prefs.trackActivity ? readActivity() : Promise.resolve(EMPTY_ACTIVITY),
   ]);
-  const plan = planArchive(tabs, { scorer: createScorer(prefs), prefs, activity, now, auto: true });
+  const groups = prefs.useTabGroups ? await readGroups() : undefined;
+  const plan = planArchive(tabs, { scorer: createScorer(prefs), prefs, activity, groups, now, auto: true });
   if (plan.requests.length === 0) return;
   const result = await runArchive(plan, prefs);
   // After the trial, automatic archiving pauses until a license is entered. Nothing is closed.
