@@ -8,6 +8,7 @@ import { resolveEntered, suggest } from '../archive/omnibox';
 import { planArchive } from '../archive/plan';
 import { createArchiveSearch, type ArchiveRecord, type ArchiveSearch } from '../archive/record';
 import { listArchive, RECORD_PREFIX } from '../archive/store';
+import { ensureTrialStarted } from '../license/store';
 import { loadPreferences, onPreferencesChanged } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
 import { createScorer } from '../scoring/score';
@@ -71,7 +72,8 @@ async function autoArchive(): Promise<void> {
   const plan = planArchive(tabs, { scorer: createScorer(prefs), prefs, activity, now, auto: true });
   if (plan.requests.length === 0) return;
   const result = await runArchive(plan, prefs);
-  if (result.undo.saved.length === 0) return;
+  // After the trial, automatic archiving pauses until a license is entered. Nothing is closed.
+  if (result.locked || result.undo.saved.length === 0) return;
   await recordAutoRun(
     { since: now, tabCount: result.archivedTabIds.length, undo: result.undo, places: plan.places },
     chrome.storage.local,
@@ -159,7 +161,11 @@ chrome.permissions.onAdded.addListener((perms) => {
 });
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(logError('could not set side panel behavior'));
 
-chrome.runtime.onInstalled.addListener(() => void init().catch(logError('init failed')));
+chrome.runtime.onInstalled.addListener(() => {
+  void init().catch(logError('init failed'));
+  // The free trial starts at install (or on update for anyone installed before licensing existed).
+  void ensureTrialStarted().catch(logError('could not start trial'));
+});
 chrome.runtime.onStartup.addListener(() => void init().catch(logError('init failed')));
 
 chrome.tabs.onActivated.addListener(() => void refreshFocus().catch(logError('focus update failed')));

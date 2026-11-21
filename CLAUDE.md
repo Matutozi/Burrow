@@ -37,6 +37,14 @@ These rules are non-negotiable. Every change must follow them.
   explicit, documented decision.
 - `incognito: "not_allowed"` stays in the manifest.
 
+## 3a. Licensing
+- License keys are verified **offline** (ECDSA P-256 signature, public key in `src/license/publicKey.ts`).
+  Never add an online license check without the same explicit, documented decision as any network feature.
+- Only *creating* new archive entries is paid (`runArchive` is the single enforcement point). Never gate
+  reopening, searching, export, import or delete: users must always reach their own data.
+- The trial length is a product constant (`TRIAL_DAYS`), not a preference.
+- The private signing key lives only in git-ignored `.license/`. `npm run package` refuses builds containing key material.
+
 ## 4. Data integrity
 - **Never trust stored data.** Everything read from storage goes through `sanitizePreferences`
   (validate.ts): wrong types fall back to defaults, numbers are clamped, lists are capped.
@@ -68,6 +76,8 @@ These rules are non-negotiable. Every change must follow them.
   (`omnibox.ts`), export, import (`importData.ts`) and delete-all with undo (`allData.ts`)
 - `src/prefs/`: preference types, defaults, validation and migration, classifier, site rules, storage
 - `src/scoring/`: the pure scoring function
-- `scripts/`: dependency-free icon drawing (`icons.mjs`) and store packaging with pre-flight checks (`package.mjs`)
+- `src/license/`: offline key verification (`key.ts`), trial/entitlement rules (`entitlement.ts`), license storage (`store.ts`)
+- `scripts/`: dependency-free icon drawing (`icons.mjs`), store packaging with pre-flight checks (`package.mjs`),
+  seller-side license tool (`license.mjs`)
 - `public/icons/`: generated icons, committed
 - `src/sidepanel/`: Preact UI (setup wizard, tab list, archive) and all user-facing wording (`format.ts`)

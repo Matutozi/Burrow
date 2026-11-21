@@ -4,10 +4,12 @@ import { EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
 import { runArchive, undoIfUnchanged } from '../archive/chromeApi';
 import { planArchive, signalsOf } from '../archive/plan';
 import { archiveBlocker } from '../archive/record';
+import { canArchive, type Entitlement } from '../license/entitlement';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { createScorer, type TabScore } from '../scoring/score';
 import { AutoArchiveBanner } from './AutoArchiveBanner';
-import { ARCHIVE_TEXT, formatArchiveResult, formatReasons } from './format';
+import { ARCHIVE_TEXT, formatArchiveResult, formatReasons, LICENSE_TEXT } from './format';
+import { LicenseChip } from './License';
 import type { Notify } from './Toast';
 
 interface Props {
@@ -16,6 +18,8 @@ interface Props {
   notify: Notify;
   onEditPreferences: () => void;
   onOpenArchive: () => void;
+  onOpenLicense: () => void;
+  entitlement: Entitlement | null;
 }
 
 interface ScoredTab {
@@ -43,7 +47,8 @@ function useTabs(): chrome.tabs.Tab[] {
       }, 150);
     };
     const onUpdated = (_id: number, change: chrome.tabs.OnUpdatedInfo) => {
-      if (change.status === 'complete' || change.title || change.pinned !== undefined || change.audible !== undefined) refresh();
+      if (change.status === 'complete' || change.title || change.pinned !== undefined || change.audible !== undefined)
+        refresh();
     };
 
     refresh();
@@ -133,7 +138,13 @@ function Row({ item, prefs, onArchive, busy }: RowProps) {
         </span>
       </button>
       {candidate && blocker === null && (
-        <button type="button" class="link" disabled={busy} onClick={onArchive} aria-label={`Archive ${tab.title || tab.url}`}>
+        <button
+          type="button"
+          class="link"
+          disabled={busy}
+          onClick={onArchive}
+          aria-label={`Archive ${tab.title || tab.url}`}
+        >
           {ARCHIVE_TEXT.archive}
         </button>
       )}
@@ -150,7 +161,15 @@ async function freshTabs(ids: number[]): Promise<chrome.tabs.Tab[]> {
   return tabs.filter((t): t is chrome.tabs.Tab => t !== null);
 }
 
-export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpenArchive }: Props) {
+export function TabList({
+  prefs,
+  archiveCount,
+  notify,
+  onEditPreferences,
+  onOpenArchive,
+  onOpenLicense,
+  entitlement,
+}: Props) {
   const tabs = useTabs();
   const activity = useActivity(prefs.trackActivity);
   const scorer = useMemo(() => createScorer(prefs), [prefs]);
@@ -158,15 +177,31 @@ export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpen
 
   async function archive(items: ScoredTab[]) {
     if (busy) return;
+    // After the trial, archive buttons lead to the license screen instead.
+    if (entitlement && !canArchive(entitlement)) {
+      onOpenLicense();
+      return;
+    }
     setBusy(true);
     try {
       const ids = items.flatMap((i) => (i.tab.id === undefined ? [] : [i.tab.id]));
       const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, now: Date.now() });
       const result = await runArchive(plan, prefs);
+      if (result.locked) {
+        notify({ text: LICENSE_TEXT.lockedToast, error: true });
+        onOpenLicense();
+        return;
+      }
       const count = (reason: string) => result.skipped.filter((s) => s.reason === reason).length;
       const archived = result.archivedTabIds.length;
       notify({
-        text: formatArchiveResult(archived, result.closeFailedTabIds.length, count('sensitive'), count('notWebPage'), result.textDropped),
+        text: formatArchiveResult(
+          archived,
+          result.closeFailedTabIds.length,
+          count('sensitive'),
+          count('notWebPage'),
+          result.textDropped,
+        ),
         undo:
           archived > 0
             ? async () => {
@@ -206,6 +241,7 @@ export function TabList({ prefs, archiveCount, notify, onEditPreferences, onOpen
       <header class="bar">
         <h1>Burrow</h1>
         <div class="buttons">
+          <LicenseChip ent={entitlement} onOpen={onOpenLicense} />
           <button type="button" class="secondary small" onClick={onOpenArchive}>
             Archive ({archiveCount})
           </button>

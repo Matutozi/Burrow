@@ -137,3 +137,30 @@ export const AUTO_TEXT = {
   undoFailed: 'Could not reopen the tabs. They are still in your archive.',
   dismiss: 'Dismiss',
 };
+
+export const LICENSE_TEXT = {
+  chipTrial: (days: number) => `Trial: ${plural(days, 'day')} left`,
+  chipExpired: 'Unlock Burrow',
+  title: 'Burrow license',
+  trial: (days: number, endsAt: number) =>
+    `Free trial: ${plural(days, 'day')} left (until ${formatDate(endsAt)}). Everything works during the trial.`,
+  expired: (endedAt: number) =>
+    `Your free trial ended on ${formatDate(endedAt)}. Archiving new tabs and automatic cleanup are paused until you enter a license key.`,
+  alwaysFree:
+    'Always free, with or without a license: scores, reopening and searching your archive (including from the address bar), export, import and delete. Your archived pages are never locked away.',
+  licensed: (id: string, issuedAt: number) => `Licensed (${id}, issued ${formatDate(issuedAt)}). Thank you for supporting Burrow!`,
+  buy: 'Buy a license',
+  keyLabel: 'License key',
+  keyPlaceholder: 'BRW1-…',
+  activate: 'Activate',
+  activated: 'License activated. Thank you!',
+  invalid: "That key isn't valid. Check you copied all of it, including BRW1- at the start.",
+  saveFailed: 'Could not save the license. Try again.',
+  remove: 'Remove license from this browser',
+  confirmRemove: 'Remove the license key from this browser profile? You can undo this right after.',
+  removed: 'License removed.',
+  restored: 'License restored.',
+  offline: 'Keys are checked on this device. Burrow never contacts a server to verify them.',
+  lockedToast: 'Your free trial has ended. Enter a license key to keep archiving.',
+  back: 'Back',
+};

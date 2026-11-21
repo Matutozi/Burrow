@@ -3,7 +3,7 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: 1.0.0, ready for Chrome Web Store submission. See the checklist in
+> Status: 1.1.0, ready for Chrome Web Store submission. See the checklist in
 > [CHROMEWEBSTORE.md](CHROMEWEBSTORE.md#submission-checklist).
 
 ## Features (so far)
@@ -40,6 +40,12 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   policy), no analytics. Preferences sync only through your own Chrome profile. Archived pages
   stay on this device. Activity stays in memory and is cleared when Chrome closes.
 
+## Pricing
+Burrow is free to try for 14 days, with everything unlocked. After that, archiving new tabs (by hand
+or automatically, including page-text saving) needs a one-time license. Your data is never locked:
+scores, reopening and searching your archive (including from the address bar), export, import and
+delete stay free forever. License keys are checked on your device; Burrow never contacts a server.
+
 ## How scoring works
 ```
 score = recency + activity + content priority + topic match − low-priority site penalty
@@ -73,6 +79,19 @@ npm run package    # production build + release/burrow-<version>.zip for the Chr
 `npm run package` refuses to pack a build with network APIs, remote code, source maps, a dev CSP or
 a version that doesn't match `package.json`. CI runs it on every push and keeps the zip as a build
 artifact.
+
+## Selling licenses
+Keys are signed with an ECDSA P-256 key that only you hold, and verified offline by the extension.
+```bash
+npm run license -- keygen            # once: creates .license/private-key.json and src/license/publicKey.ts
+npm run license -- issue <orderId>   # prints a key to send to the buyer (orderId: 1-64 chars, no personal data)
+npm run license -- verify <key>      # checks a key
+```
+- `.license/` is git-ignored. **Back up `.license/private-key.json` somewhere safe and private.** If it is
+  lost, you can't issue keys for existing versions; if it leaks, anyone can make keys.
+- Generating a new key pair invalidates every key already sold, so do it only before launch.
+- Set the store page in `src/license/config.ts` (`PURCHASE_URL`); the Buy button stays hidden while it's empty.
+- `npm run package` refuses to pack a build that contains private key material.
 
 ## Load in Chrome
 1. Run `npm run build` (or `npm run dev`).

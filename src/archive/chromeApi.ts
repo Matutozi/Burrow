@@ -2,6 +2,7 @@
  * Thin Chrome wrappers shared by the side panel and the service worker. Logic stays in the pure
  * modules next to this file.
  */
+import { mayArchive } from '../license/store';
 import type { Preferences } from '../prefs/types';
 import { CAPTURE_LIMITS, CAPTURE_PERMISSIONS, captureTexts, extractPageText } from './capture';
 import type { TabPlace, ArchivePlan, TabPlaces } from './plan';
@@ -60,8 +61,15 @@ export async function readPageText(tabId: number): Promise<unknown> {
   return first?.result ?? null;
 }
 
-/** Captures page text where allowed, then archives (save first, close after). */
-export async function runArchive(plan: ArchivePlan, prefs: Preferences): Promise<ArchiveResult> {
+export type RunResult = { locked: true } | (ArchiveResult & { locked: false });
+
+/**
+ * The one path every archive takes, by hand or automatic. Checks the license first (archiving new
+ * tabs is the paid feature), then captures page text where allowed, then archives (save first,
+ * close after). Nothing is read or closed when locked.
+ */
+export async function runArchive(plan: ArchivePlan, prefs: Preferences): Promise<RunResult> {
+  if (!(await mayArchive())) return { locked: true };
   if (prefs.captureText && plan.readable.length > 0 && (await hasCaptureAccess())) {
     const texts = await captureTexts(plan.readable, readPageText);
     for (const req of plan.requests) {
@@ -69,7 +77,7 @@ export async function runArchive(plan: ArchivePlan, prefs: Preferences): Promise
       if (text) req.input.text = text;
     }
   }
-  return archiveTabs(plan.requests, { closeTabs, now: Date.now() });
+  return { ...(await archiveTabs(plan.requests, { closeTabs, now: Date.now() })), locked: false };
 }
 
 /**

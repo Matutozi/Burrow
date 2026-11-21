@@ -46,6 +46,8 @@ for (const file of files) {
   if (!/\.(js|html|css|json)$/.test(rel)) continue;
   const text = readFileSync(file, 'utf8');
   if (/fetch\(|XMLHttpRequest|WebSocket\(|sendBeacon/.test(text)) fail(`network API in ${rel}`);
+  // The license signing key must never ship. A private JWK has a "d" member; the public one doesn't.
+  if (/["']?\bd["']?\s*:\s*["'][A-Za-z0-9_-]{40,}["']/.test(text) && /\bcrv\b/.test(text)) fail(`private key material in ${rel}`);
   // Remote code is banned in MV3. Host patterns like https://*/* in the manifest are fine.
   if (rel !== 'manifest.json' && /<script[^>]+src=["']https?:|import\(["']https?:/.test(text)) fail(`remote code in ${rel}`);
 }

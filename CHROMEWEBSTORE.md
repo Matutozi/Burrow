@@ -1,6 +1,6 @@
 # Chrome Web Store Listing: Burrow
 
-> Last Updated: 2026-11-20 · Version 1.0.0 · Ready to submit (see [Submission checklist](#submission-checklist))
+> Last Updated: 2026-11-21 · Version 1.1.0 · Ready to submit (see [Submission checklist](#submission-checklist))
 
 ## Store Listing
 
@@ -22,6 +22,8 @@ Search from the address bar: type "burrow", a space and a few words to find any 
 Automatic cleanup (optional): let Burrow archive clutter on a schedule. You choose how often it checks, how long a tab must be untouched, and how many tabs it may archive at once. Pinned, playing and current tabs, sensitive pages and the last tab in a window are never touched, and every automatic cleanup can be undone with one click.
 
 Search inside pages (optional): turn on page-text saving and Burrow keeps the readable text of pages you archive, so you can find them later by what they said, not just their title. It's off by default, asks for permission only when you turn it on, and skips pages with password fields.
+
+Pricing: try everything free for 14 days. After that, a one-time license unlocks archiving new tabs and automatic cleanup. Your archive is never locked: reopening, searching, export and delete always stay free. License keys are checked on your device, without contacting any server.
 
 Privacy: Burrow runs entirely in your browser. It has no servers, sends nothing over the internet, and contains no analytics or third-party tracking. Your preferences are stored in your own Chrome profile, archived pages stay on this device, and usage counts are kept in memory only and cleared when Chrome closes.
 
@@ -81,6 +83,13 @@ Support: https://github.com/Matutozi/Burrow/issues
 - [x] Data is NOT used for purposes unrelated to the extension's core functionality
 - [x] Data is NOT used for creditworthiness or lending purposes
 
+## Payments
+**Offers in-app purchases:** Yes. Tick this in the dashboard.
+- Model: 14-day free trial with everything unlocked, then a one-time license key.
+- Paid after the trial: archiving new tabs (manual and automatic, including page-text saving).
+- Always free: scoring, reopening and searching archived pages (side panel and address bar), export, import, delete.
+- Purchase happens on an external store page opened in a normal tab (`PURCHASE_URL`); keys are verified offline by signature. No payment or licensing network calls from the extension.
+
 ## Privacy Policy
 **Privacy Policy URL:** https://github.com/Matutozi/Burrow/blob/main/PRIVACY.md (the repository must be public; the side panel links here too)
 
@@ -103,6 +112,7 @@ Support: https://github.com/Matutozi/Burrow/issues
 | 0.5.0 | 2026-11-20 | Automatic archiving on a user-set schedule with safety limits (minimum untouched time, per-run cap, never the last tab in a window) and a one-click undo banner. New optional permission: alarms. Existing "auto" choices reset to "ask first" until the user opts in again. Not submitted. |
 | 0.6.0 | 2026-11-20 | Address-bar search of the archive (omnibox keyword "burrow", no permission needed); import of export files with newest-wins merge and undo; "Delete all Burrow data" with undo. No new permissions. Not submitted. |
 | 1.0.0 | 2026-11-20 | Store release candidate: icons, privacy policy link in the side panel, reproducible store zip with pre-flight checks (`npm run package`), CI build artifact. No new permissions. |
+| 1.1.0 | 2026-11-21 | 14-day free trial, then a one-time license (verified offline by signature) for archiving new tabs and automatic cleanup. Reopening, search, export, import and delete always free. No new permissions, no network calls. |
 
 ## Submission Checklist
 Done in the code:
@@ -115,8 +125,11 @@ Done in the code:
 - [x] MIT LICENSE file
 
 Owner to do before submitting:
-- [ ] Load `release/burrow-1.0.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
+- [ ] Load `release/burrow-1.1.0.zip` (unzipped) via `chrome://extensions` → Load unpacked, and run through setup, archive, undo, page-text search, automatic mode, address-bar search, import and delete-all
 - [ ] Make the GitHub repository public (or host PRIVACY.md elsewhere and update the URL in this file and `src/sidepanel/DataControls.tsx`)
 - [ ] Capture 3 screenshots at 1280×800 (see Screenshot Notes)
 - [ ] Fill in Publisher Name and Contact Email; verify the email in the developer dashboard
-- [ ] Upload `release/burrow-1.0.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit
+- [ ] Back up `.license/private-key.json` (password manager or encrypted drive) and never commit it
+- [ ] Create the store page (e.g. Lemon Squeezy), set `PURCHASE_URL` in `src/license/config.ts`, and plan how keys reach buyers (`npm run license -- issue <orderId>`)
+- [ ] Tick "Offers in-app purchases" in the dashboard
+- [ ] Upload `release/burrow-1.1.0.zip` (from `npm run package` or the CI artifact), paste the texts above into the listing and privacy tabs, and submit
