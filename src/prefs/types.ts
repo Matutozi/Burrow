@@ -4,6 +4,8 @@ export const CONTENT_TYPES = [
   'article',
   'video',
   'code',
+  'learning',
+  'jobs',
   'work',
   'news',
   'social',
@@ -20,6 +22,8 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   article: 'Articles & blogs',
   video: 'Videos',
   code: 'Code & repos',
+  learning: 'Courses & learning',
+  jobs: 'Jobs & opportunities',
   work: 'Work apps',
   news: 'News',
   social: 'Social media',
@@ -82,7 +86,7 @@ export interface CustomCategory {
 }
 
 /** Current schema version. Bump it and add a migration in validate.ts when the shape changes. */
-export const PREFERENCES_VERSION = 5;
+export const PREFERENCES_VERSION = 6;
 
 export interface Preferences {
   version: typeof PREFERENCES_VERSION;

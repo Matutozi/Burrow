@@ -103,7 +103,7 @@ export function createScorer(prefs: Preferences): Scorer {
   const fullActiveMs = Math.max(1, w.activityFullMinutes) * MINUTE_MS;
 
   function score(signals: TabSignals, now: number): TabScore {
-    const contentType = classify(signals.url);
+    const contentType = classify(signals.url, signals.title);
     const host = hostOf(signals.url);
     const text = `${signals.title} ${signals.url}`;
     const group = prefs.useTabGroups ? signals.groupTitle?.trim() || null : null;

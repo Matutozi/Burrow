@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import { labelsIn } from '../archive/record';
 import { loadPreferences, onPreferencesChanged, savePreferences } from '../prefs/storage';
 import type { Preferences } from '../prefs/types';
 import { ArchiveView, useArchive } from './Archive';
@@ -18,6 +19,7 @@ export function App() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const records = useArchive();
   const entitlement = useEntitlement();
+  const savedLabels = useMemo(() => labelsIn(records).map((l) => l.name), [records]);
 
   useEffect(() => {
     let changedMeanwhile = false;
@@ -61,12 +63,21 @@ export function App() {
       {view === 'archive' && (
         <ArchiveView prefs={prefs} records={records} notify={setToast} onBack={() => setView('tabs')} />
       )}
-      {view === 'organise' && <OrganiseView prefs={prefs} notify={setToast} onDone={() => setView('tabs')} />}
+      {view === 'organise' && (
+        <OrganiseView
+          prefs={prefs}
+          notify={setToast}
+          onDone={() => setView('tabs')}
+          onOpenLicense={() => setView('license')}
+          savedLabels={savedLabels}
+        />
+      )}
       {view === 'license' && <LicenseView ent={entitlement} notify={setToast} onBack={() => setView('tabs')} />}
       {view === 'tabs' && (
         <TabList
           prefs={prefs}
           archiveCount={records.length}
+          savedLabels={savedLabels}
           notify={setToast}
           entitlement={entitlement}
           onEditPreferences={() => setEditing(true)}

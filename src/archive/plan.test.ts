@@ -64,6 +64,20 @@ describe('planArchive', () => {
     expect(plan([tab(), tab()], prefs, true).requests).toHaveLength(0);
   });
 
+  it('archives tabs the user chose even above the threshold, but never protected ones', () => {
+    const fresh = tab({ lastAccessed: NOW });
+    const active = tab({ active: true });
+    const prefs = defaultPreferences();
+    const p = planArchive([fresh, active], {
+      scorer: createScorer(prefs),
+      prefs,
+      activity: EMPTY_ACTIVITY,
+      now: NOW,
+      chosen: true,
+    });
+    expect(p.requests.map((r) => r.tabId)).toEqual([fresh.id]);
+  });
+
   describe('automatic mode', () => {
     it('needs the tab untouched for the configured hours', () => {
       const prefs = { ...defaultPreferences(), autoArchiveAfterHours: 48, archiveThreshold: 100 };

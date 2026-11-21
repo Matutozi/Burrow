@@ -23,6 +23,33 @@ describe('classify', () => {
   });
 });
 
+describe('learning, jobs and coding practice', () => {
+  it.each([
+    ['https://leetcode.com/problems/maximum-subarray-min-product/description/', '', 'code'],
+    ['https://neetcode.io/practice/practice/neetcode150', '', 'code'],
+    ['https://anthropic.skilljar.com/claude-code-in-action', '', 'learning'],
+    ['https://www.skills.google/paths/3135/course_templates/1341', '', 'learning'],
+    ['https://learn.chipmango.com/dashboard/x', '', 'learning'],
+    ['https://canvas.myuni.edu/courses/123', '', 'learning'],
+    ['https://blackrock.tal.net/vx/candidate', '', 'jobs'],
+    ['https://apply.internships.cispa.de/', '', 'jobs'],
+    ['https://jobs.fao.org/careersection/x', '', 'jobs'],
+    ['https://example.org/careers/engineering', '', 'jobs'],
+    // Unknown sites fall back to the title.
+    ['https://mercatus.tfaforms.net/12', 'Emergent Ventures Grant Application', 'jobs'],
+    ['https://ieeesystemscouncil.org/x', 'IEEE Systems Council Engineering Undergraduate Scholarship', 'jobs'],
+    ['https://example.com/x', 'Lecture 4: Dynamic programming', 'learning'],
+    ['https://example.com/x', "Do Things that Don't Scale", 'other'],
+  ])('%s (%s) -> %s', (url, title, expected) => {
+    expect(classify(url, {}, title)).toBe(expected);
+  });
+
+  it('never calls a page sensitive from its title alone, and respects built-ins being off', () => {
+    expect(classify('https://example.com', {}, 'My bank statement email')).toBe('other');
+    expect(classify('https://example.com', { useBuiltIns: false }, 'Internship')).toBe('other');
+  });
+});
+
 describe('normalizeDomain', () => {
   it.each([
     ['https://www.Example.com/path?q=1', 'example.com'],

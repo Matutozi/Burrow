@@ -59,10 +59,13 @@ export function formatArchiveResult(
   sensitive: number,
   notWebPage: number,
   textDropped = false,
+  label = '',
 ): string {
   const parts: string[] = [];
-  if (archived > 0) parts.push(`Archived ${plural(archived, 'tab')}`);
-  if (closeFailed > 0) parts.push(`${plural(closeFailed, 'tab')} couldn't be closed but ${closeFailed === 1 ? 'is' : 'are'} saved`);
+  if (archived > 0)
+    parts.push(label ? `Archived ${plural(archived, 'tab')} under "${label}"` : `Archived ${plural(archived, 'tab')}`);
+  if (closeFailed > 0)
+    parts.push(`${plural(closeFailed, 'tab')} couldn't be closed but ${closeFailed === 1 ? 'is' : 'are'} saved`);
   if (sensitive > 0) parts.push(`${plural(sensitive, 'sensitive tab')} left open (set to "never save")`);
   if (notWebPage > 0) parts.push(`${plural(notWebPage, 'browser page')} left open`);
   if (textDropped) parts.push('storage is full, so only titles were saved');
@@ -150,7 +153,8 @@ export const LICENSE_TEXT = {
     `Your free trial ended on ${formatDate(endedAt)}. Archiving new tabs and automatic cleanup are paused until you enter a license key.`,
   alwaysFree:
     'Always free, with or without a license: scores, reopening and searching your archive (including from the address bar), export, import and delete. Your archived pages are never locked away.',
-  licensed: (id: string, issuedAt: number) => `Licensed (${id}, issued ${formatDate(issuedAt)}). Thank you for supporting Burrow!`,
+  licensed: (id: string, issuedAt: number) =>
+    `Licensed (${id}, issued ${formatDate(issuedAt)}). Thank you for supporting Burrow!`,
   buy: 'Buy a license',
   keyLabel: 'License key',
   keyPlaceholder: 'BRW1-…',
@@ -170,30 +174,47 @@ export const LICENSE_TEXT = {
 export const GROUP_TEXT = {
   organiseButton: 'Organise',
   title: 'Organise tabs',
-  summary: (grouped: number, groups: number, left: number, untouched: number) =>
-    `Burrow suggests ${plural(groups, 'group')} for ${plural(grouped, 'tab')}. ${plural(left, 'tab')} would stay ungrouped` +
-    (untouched > 0 ? `, and ${untouched} pinned or already grouped ${untouched === 1 ? 'tab is' : 'tabs are'} left as they are.` : '.'),
-  intro: 'Nothing changes until you confirm. Rename groups, change colours, untick a group to skip it, or move any tab.',
+  summary: (total: number, keep: number, archive: number) =>
+    `${plural(total, 'tab')} looked at: keep ${keep} (grouped where it helps), archive ${archive}.`,
+  intro:
+    'Nothing changes until you confirm. Move any tab with the menu beside it, rename or recolour groups, untick a group to skip it, or put a whole group away.',
+  keepHeading: (n: number) => `Keep (${n})`,
+  archiveHeading: (n: number) => `Archive (${n} low-score ${n === 1 ? 'tab' : 'tabs'})`,
+  archiveHelp:
+    'Saved and searchable, then closed to free memory. Reopen them any time from the Archive or the address bar.',
+  archiveLocked: 'Your free trial has ended, so Organise only groups tabs. Enter a license key to archive too.',
+  archiveEmpty: 'Nothing proposed for archiving. Move tabs here with the menu beside them.',
+  archiveOption: 'Archive',
+  keepInGroup: 'Keep in its group',
+  unlock: 'Unlock',
+  archiveGroup: (n: number) => `Archive group (${n})`,
+  leftAsIs: (n: number) =>
+    `${plural(n, 'tab')} left as ${n === 1 ? 'it is' : 'they are'} (pinned or already in a group).`,
+  confirmBoth: (grouped: number, archived: number) =>
+    [grouped > 0 ? `Group ${grouped}` : '', archived > 0 ? `Archive ${archived}` : ''].filter(Boolean).join(' · ') ||
+    'Nothing to do',
+  working: 'Working…',
+  doneBoth: (archived: number, keptOpen: number, created: number, extended: number, skipped: number) =>
+    [
+      archived > 0 ? `Archived ${plural(archived, 'tab')}` : '',
+      keptOpen > 0 ? `${plural(keptOpen, 'tab')} could not be archived and stayed open` : '',
+      created > 0 ? `created ${plural(created, 'group')}` : '',
+      extended > 0 ? `added to ${plural(extended, 'existing group')}` : '',
+      skipped > 0 ? `${plural(skipped, 'tab')} had changed and ${skipped === 1 ? 'was' : 'were'} left alone` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Nothing changed',
   noGroup: 'No group',
-  ungroupedHeading: (n: number) => `Not grouped (${n})`,
+  ungroupedHeading: (n: number) => `Keep, no group (${n})`,
   groupName: 'Group name',
   colour: 'Colour',
   include: 'Create this group',
   moveTo: 'Move to',
   addGroup: '+ New group',
   newGroupName: 'New group',
-  confirm: (n: number) => `Create ${plural(n, 'group')}`,
   cancel: 'Cancel',
-  nothing: 'No groups to suggest. Your tabs are already grouped, pinned, or too varied.',
-  needAccess: 'Burrow needs permission to create and name tab groups. Chrome grants it without a prompt; click Organise again.',
-  done: (created: number, extended: number, skipped: number) =>
-    [
-      created > 0 ? `Created ${plural(created, 'group')}` : '',
-      extended > 0 ? `added to ${plural(extended, 'existing group')}` : '',
-      skipped > 0 ? `${plural(skipped, 'tab')} had changed and ${skipped === 1 ? 'was' : 'were'} left alone` : '',
-    ]
-      .filter(Boolean)
-      .join(' · ') || 'Nothing was grouped',
+  needAccess:
+    'Burrow needs permission to create and name tab groups. Chrome grants it without a prompt; click Organise again.',
   undone: 'Groups undone.',
   failed: 'Could not create the groups. Nothing was changed.',
   useGroupsLabel: 'Use my Chrome tab groups',
@@ -211,4 +232,18 @@ export const GROUP_TEXT = {
     cyan: 'Cyan',
     orange: 'Orange',
   } as Record<string, string>,
+};
+
+export const LABEL_TEXT = {
+  saveUnder: 'Save under',
+  placeholder: 'optional, e.g. School',
+  hint: 'Find them later by typing this name in the Archive search or after "burrow" in the address bar.',
+  all: 'All',
+  unlabelled: 'No name',
+  relabel: (n: number) => `Save ${n === 1 ? 'this page' : `these ${n} pages`} under`,
+  relabelButton: 'Save',
+  relabelled: (n: number, label: string) =>
+    label ? `Saved ${plural(n, 'page')} under "${label}"` : `Removed the name from ${plural(n, 'page')}`,
+  relabelFailed: 'Could not save the name. Try again.',
+  undone: 'Name change undone.',
 };

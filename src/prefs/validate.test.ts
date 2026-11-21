@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createScorer } from '../scoring/score';
 import { DEFAULT_WEIGHTS, defaultPreferences } from './defaults';
 import { cleanDomain, LIMITS, sanitizePreferences } from './validate';
+import { PREFERENCES_VERSION } from './types';
 
 describe('sanitizePreferences', () => {
   it('returns defaults for non-objects', () => {
@@ -75,14 +76,14 @@ describe('sanitizePreferences', () => {
 describe('migration', () => {
   it('upgrades v1 data with page-text capture off', () => {
     const p = sanitizePreferences({ version: 1, topics: ['kept'], captureText: true });
-    expect(p.version).toBe(5);
+    expect(p.version).toBe(PREFERENCES_VERSION);
     expect(p.captureText).toBe(false);
     expect(p.topics).toEqual(['kept']);
   });
 
   it('upgrades v2 data to v3 with automatic archiving off until the user turns it on again', () => {
     const p = sanitizePreferences({ version: 2, mode: 'auto', captureText: true });
-    expect(p.version).toBe(5);
+    expect(p.version).toBe(PREFERENCES_VERSION);
     expect(p.mode).toBe('suggest');
     expect(p.captureText).toBe(true);
     expect(p.autoArchiveMaxPerRun).toBe(20);
@@ -103,7 +104,7 @@ describe('migration', () => {
 describe('tab group preferences (v5)', () => {
   it('upgrades v4 data with tab groups off', () => {
     const p = sanitizePreferences({ version: 4, useTabGroups: true });
-    expect(p.version).toBe(5);
+    expect(p.version).toBe(PREFERENCES_VERSION);
     expect(p.useTabGroups).toBe(false);
     expect(p.groupMinTabs).toBe(2);
   });

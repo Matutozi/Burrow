@@ -3,7 +3,7 @@
 **Close tabs without fear.** Burrow scores every open tab based on how you use it and what you
 told it matters. Clutter can then be archived instead of closed, and everything stays searchable.
 
-> Status: 1.3.0, ready for Chrome Web Store submission. See the checklist in
+> Status: 1.5.0, ready for Chrome Web Store submission. See the checklist in
 > [CHROMEWEBSTORE.md](CHROMEWEBSTORE.md#submission-checklist).
 
 ## Features (so far)
@@ -14,10 +14,13 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   "Travel grants". Give each a priority and what to save when archived, and tell Burrow how to spot it:
   by site (`ieee.org`) or by words in the title or address ("call for papers", "travel grant"). Your
   categories are checked before the built-in types, and archived pages can be searched by category name.
-- **Organise tabs into groups:** click **Organise** and Burrow proposes Chrome tab groups for your
-  ungrouped tabs: your own categories first (e.g. "Courses"), then built-in types (Docs, Videos, Social…).
-  Nothing changes until you confirm. In the preview you can rename groups, change colours, skip a group,
-  add a new one, or move any tab. Pinned and already-grouped tabs are never touched, and it can be undone.
+- **Organise (a cleanup, not just a tidy-up):** click **Organise** and Burrow proposes what to do with
+  every tab. Low-score tabs, including clutter inside your existing groups, go to **Archive**: saved,
+  searchable, and closed to free memory. Tabs worth keeping are grouped where it helps: your own categories
+  first (e.g. "Courses"), then built-in types, then tabs from the same site. Nothing changes until you
+  confirm. Move any tab between Archive and the groups, rename or recolour groups, skip a group, put a whole
+  group away, or add a new one. One confirmation does both, and one Undo reverses both. Pinned tabs and
+  your existing groups are never regrouped. After the trial, Organise still groups for free.
 - **Uses your tab groups (opt-in):** a tab in a group named like one of your categories belongs to it.
   Archived pages remember their group, can be searched by it, and go back into it when reopened.
 - **Tab scores (0–100)** with a plain-English reason for each, for example
@@ -40,6 +43,14 @@ told it matters. Clutter can then be archived instead of closed, and everything 
   at most 20 tabs per check. It never touches pinned, audible or open-in-front tabs, sensitive pages,
   browser pages, or the last tab in a window. A banner in the tab list shows what it archived, with
   one-click **Undo**.
+- **Save under a name:** when archiving (from the tab list or Organise), type a name like *School* in
+  **Save under**. Later, type `school` in the Archive search or `burrow school` in the address bar to list
+  everything saved under it, or click its chip in the Archive view. "Archive group" in Organise saves under
+  the group's name automatically. You can also name pages you archived earlier: search or pick a chip, then
+  use **Save these pages under**.
+- **Smarter built-in types:** Courses & learning, Jobs & opportunities (internships, scholarships, grants,
+  fellowships, hackathons), and coding practice sites like LeetCode and NeetCode are recognised, by site,
+  address or, for unknown sites, the tab's title.
 - **Search from the address bar:** type `burrow`, a space, then a few words. Matching archived pages
   appear as suggestions; press Enter to open one. The page stays in your archive, like a bookmark you
   never had to make.

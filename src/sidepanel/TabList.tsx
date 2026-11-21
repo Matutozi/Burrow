@@ -3,13 +3,14 @@ import { onActivityChanged, readActivity } from '../activity/store';
 import { EMPTY_ACTIVITY, type ActivityState } from '../activity/tracker';
 import { runArchive, undoIfUnchanged } from '../archive/chromeApi';
 import { planArchive, signalsOf } from '../archive/plan';
-import { archiveBlocker } from '../archive/record';
+import { archiveBlocker, cleanLabel } from '../archive/record';
 import { canArchive, type Entitlement } from '../license/entitlement';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { createScorer, type TabScore } from '../scoring/score';
 import { AutoArchiveBanner } from './AutoArchiveBanner';
 import { ARCHIVE_TEXT, formatArchiveResult, formatReasons, GROUP_TEXT, LICENSE_TEXT } from './format';
 import { useGroups } from './groups';
+import { LabelInput } from './LabelInput';
 import { LicenseChip } from './License';
 import type { Notify } from './Toast';
 
@@ -23,6 +24,8 @@ interface Props {
   /** Opens "Organise tabs". Called from the click, so it can ask Chrome for tab group access. */
   onOrganise: () => void;
   entitlement: Entitlement | null;
+  /** "Save under" names already used in the archive, for suggestions. */
+  savedLabels: string[];
 }
 
 interface ScoredTab {
@@ -179,12 +182,14 @@ export function TabList({
   onOpenLicense,
   onOrganise,
   entitlement,
+  savedLabels,
 }: Props) {
   const tabs = useTabs();
   const activity = useActivity(prefs.trackActivity);
   const groups = useGroups(prefs.useTabGroups);
   const scorer = useMemo(() => createScorer(prefs), [prefs]);
   const [busy, setBusy] = useState(false);
+  const [saveUnder, setSaveUnder] = useState('');
 
   async function archive(items: ScoredTab[]) {
     if (busy) return;
@@ -196,7 +201,8 @@ export function TabList({
     setBusy(true);
     try {
       const ids = items.flatMap((i) => (i.tab.id === undefined ? [] : [i.tab.id]));
-      const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, groups, now: Date.now() });
+      const label = cleanLabel(saveUnder);
+      const plan = planArchive(await freshTabs(ids), { scorer, prefs, activity, groups, label, now: Date.now() });
       const result = await runArchive(plan, prefs);
       if (result.locked) {
         notify({ text: LICENSE_TEXT.lockedToast, error: true });
@@ -205,14 +211,16 @@ export function TabList({
       }
       const count = (reason: string) => result.skipped.filter((s) => s.reason === reason).length;
       const archived = result.archivedTabIds.length;
+      const summary = formatArchiveResult(
+        archived,
+        result.closeFailedTabIds.length,
+        count('sensitive'),
+        count('notWebPage'),
+        result.textDropped,
+        label,
+      );
       notify({
-        text: formatArchiveResult(
-          archived,
-          result.closeFailedTabIds.length,
-          count('sensitive'),
-          count('notWebPage'),
-          result.textDropped,
-        ),
+        text: summary,
         undo:
           archived > 0
             ? async () => {
@@ -279,6 +287,7 @@ export function TabList({
               {ARCHIVE_TEXT.archiveAll(candidates.length)}
             </button>
           </div>
+          <LabelInput value={saveUnder} onChange={setSaveUnder} suggestions={savedLabels} />
           <ul class="tabs">
             {candidates.map((item) => (
               <Row key={item.tab.id} item={item} prefs={prefs} busy={busy} onArchive={() => void archive([item])} />

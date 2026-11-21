@@ -2,6 +2,7 @@ import type { IndexPolicy } from '../prefs/types';
 import {
   archiveBlocker,
   buildRecord,
+  cleanLabel,
   sanitizeRecord,
   sortRecords,
   withoutText,
@@ -55,6 +56,21 @@ async function readRecords(ids: string[], area: ArchiveArea): Promise<ArchiveRec
 export async function putRecords(records: ArchiveRecord[], area: ArchiveArea = localArea()): Promise<void> {
   if (records.length === 0) return;
   await area.set(Object.fromEntries(records.map((r) => [keyOf(r.id), r])));
+}
+
+/**
+ * Saves pages under a new name (or no name, for ''). Returns the records as they were, for undo.
+ * Nothing else about the pages changes.
+ */
+export async function relabelRecords(
+  records: ArchiveRecord[],
+  label: string,
+  area: ArchiveArea = localArea(),
+): Promise<ArchiveRecord[]> {
+  const name = cleanLabel(label);
+  const next = records.map(({ label: _old, ...rest }) => (name ? { ...rest, label: name } : rest));
+  await putRecords(next, area);
+  return records;
 }
 
 /** Deletes records and returns what was there, so the caller can offer undo. */
@@ -114,7 +130,10 @@ export async function archiveTabs(requests: ArchiveRequest[], deps: ArchiveDeps)
 
   // Two tabs with the same address share one record.
   let saved = [...new Map(toSave.map((s) => [s.record.id, s.record])).values()];
-  const previous = await readRecords(saved.map((r) => r.id), area);
+  const previous = await readRecords(
+    saved.map((r) => r.id),
+    area,
+  );
   let textDropped = false;
   try {
     await putRecords(saved, area);
@@ -166,7 +185,10 @@ export async function restoreRecords(
   area: ArchiveArea = localArea(),
 ): Promise<ArchiveRecord[]> {
   await openPages(records);
-  return removeRecords(records.map((r) => r.id), area);
+  return removeRecords(
+    records.map((r) => r.id),
+    area,
+  );
 }
 
 /** Calls back whenever any archive record is added, changed or removed. */

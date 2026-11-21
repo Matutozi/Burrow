@@ -179,3 +179,14 @@ kbd { font: 11px ui-monospace, monospace; padding: 0 4px; border: 1px solid var(
 .dot.grey { background: #5f6368; } .dot.blue { background: #1a73e8; } .dot.red { background: #d93025; }
 .dot.yellow { background: #f9ab00; } .dot.green { background: #188038; } .dot.pink { background: #d01884; }
 .dot.purple { background: #a142f4; } .dot.cyan { background: #007b83; } .dot.orange { background: #fa903e; }
+
+/* Save under */
+.save-under { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; font-size: 12px; }
+.save-under span { color: var(--muted); white-space: nowrap; }
+.save-under input { flex: 1; min-width: 0; padding: 4px 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.chip { border: 1px solid var(--border); background: transparent; border-radius: 12px; padding: 2px 10px; font-size: 12px; }
+.chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.label-tag { font-size: 10px; padding: 0 6px; margin-right: 4px; border-radius: 8px; background: var(--accent); color: var(--accent-text); }
+.relabel { display: flex; align-items: center; gap: 6px; }
+.relabel .save-under { flex: 1; margin: 0; }

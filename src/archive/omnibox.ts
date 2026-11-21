@@ -48,7 +48,8 @@ export function toSuggestion(r: ArchiveRecord, query: string, label: string): Su
   const title = (r.title || r.url).slice(0, OMNIBOX_LIMITS.maxTitleChars);
   return {
     content: r.url,
-    description: `${highlight(title, query)} <dim>· ${escapeXml(label)} · ${escapeXml(hostOf(r.url) ?? '')}</dim>`,
+    // Show the "Save under" name when there is one, so "burrow school" makes clear why a page matched.
+    description: `${highlight(title, query)} <dim>· ${r.label ? highlight(r.label, query) : escapeXml(label)} · ${escapeXml(hostOf(r.url) ?? '')}</dim>`,
   };
 }
 

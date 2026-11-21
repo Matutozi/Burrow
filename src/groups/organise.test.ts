@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { TabScore } from '../scoring/score';
 import { NO_GROUP, sanitizeGroup } from './info';
-import { addGroup, confirmedGroups, moveTab, planOrganise, updateGroup, type OrganiseTab } from './organise';
+import {
+  addGroup,
+  ARCHIVE_KEY,
+  archivableIn,
+  archiveGroup,
+  confirmedGroups,
+  moveTab,
+  leftAsIs,
+  placeOf,
+  planOrganise,
+  updateGroup,
+  type OrganiseTab,
+} from './organise';
 
 let next = 1;
 function tab(
@@ -25,6 +37,8 @@ function tab(
       protected: false,
       reasons: [],
     },
+    clutter: false,
+    archivable: true,
     ...over,
   };
 }
@@ -51,9 +65,9 @@ describe('planOrganise', () => {
     expect(new Set(plan.groups.map((g) => g.color)).size).toBe(2);
   });
 
-  it('never touches pinned or already grouped tabs, and leaves "everything else" ungrouped', () => {
+  it('never touches pinned or already grouped tabs, and leaves lone "everything else" tabs ungrouped', () => {
     const tabs = [tab('video', { pinned: true }), tab('video', { groupId: 7 }), tab('other'), tab('other')];
-    const plan = planOrganise(tabs, 1);
+    const plan = planOrganise(tabs, 2);
     expect(plan.groups).toEqual([]);
     expect(plan.untouched).toBe(2);
     expect(plan.ungrouped).toHaveLength(2);
@@ -108,5 +122,81 @@ describe('sanitizeGroup', () => {
     expect(sanitizeGroup({ title: 'x', color: 'neon' })).toEqual({ title: 'x', color: 'grey' });
     expect(sanitizeGroup({ title: '  ' })).toBeNull();
     expect(sanitizeGroup(null)).toBeNull();
+  });
+});
+
+describe('cleanup: archive the clutter, group the keepers', () => {
+  it('proposes low-score tabs for the archive instead of a group', () => {
+    const keep = [tab('video'), tab('video')];
+    const clutter = [tab('video', { clutter: true }), tab('news', { clutter: true })];
+    const plan = planOrganise([...keep, ...clutter], 2);
+    expect(plan.archive).toEqual(clutter.map((t) => t.tabId));
+    expect(plan.groups.map((g) => [g.title, g.tabIds])).toEqual([['Videos', keep.map((t) => t.tabId)]]);
+    expect(placeOf(plan, clutter[0]?.tabId ?? -1)).toBe(ARCHIVE_KEY);
+  });
+
+  it('keeps clutter that cannot be archived (sensitive or protected) out of the archive', () => {
+    const sensitive = tab('email', { clutter: true, archivable: false });
+    const plan = planOrganise([sensitive, tab('email', { clutter: true, archivable: false })], 2);
+    expect(plan.archive).toEqual([]);
+    expect(plan.groups[0]?.tabIds).toContain(sensitive.tabId);
+    expect(moveTab(plan, sensitive.tabId, ARCHIVE_KEY)).toBe(plan);
+  });
+
+  it('proposes no archiving after the trial, only groups', () => {
+    const plan = planOrganise([tab('video', { clutter: true }), tab('video', { clutter: true })], 2, false);
+    expect(plan.archive).toEqual([]);
+    expect(plan.groups[0]?.tabIds).toHaveLength(2);
+    expect(plan.archivable.size).toBe(0);
+  });
+
+  it('moves tabs into and out of the archive', () => {
+    const t1 = tab('video', { clutter: true });
+    const plan = planOrganise([t1, tab('video'), tab('video')], 2);
+    const kept = moveTab(plan, t1.tabId, 'type:video');
+    expect(kept.archive).toEqual([]);
+    expect(placeOf(kept, t1.tabId)).toBe('type:video');
+    const back = moveTab(kept, t1.tabId, ARCHIVE_KEY);
+    expect(back.archive).toEqual([t1.tabId]);
+    expect(back.groups[0]?.tabIds).not.toContain(t1.tabId);
+    expect(placeOf(moveTab(back, t1.tabId, null), t1.tabId)).toBeNull();
+  });
+
+  it('archives a whole group except tabs that cannot be archived', () => {
+    const a = tab('docs', {}, courses);
+    const b = tab('docs', {}, courses);
+    const locked = tab('docs', { archivable: false }, courses);
+    const plan = planOrganise([a, b, locked], 2);
+    expect(archivableIn(plan, 'cat:courses')).toBe(2);
+    const done = archiveGroup(plan, 'cat:courses');
+    expect(done.archive).toEqual([a.tabId, b.tabId]);
+    expect(done.groups[0]?.tabIds).toEqual([locked.tabId]);
+  });
+});
+
+describe('fixes from real use', () => {
+  it('offers clutter inside existing groups for the archive, and keeps it in its group if moved back', () => {
+    const grouped = tab('video', { groupId: 5, clutter: true });
+    const fine = tab('video', { groupId: 5 });
+    const plan = planOrganise([grouped, fine], 2);
+    expect(plan.archive).toEqual([grouped.tabId]);
+    expect(leftAsIs(plan)).toBe(1);
+    expect(plan.groups).toEqual([]);
+    const kept = moveTab(plan, grouped.tabId, 'type:video');
+    expect(kept.archive).toEqual([]);
+    expect(kept.ungrouped).toEqual([]);
+    expect(leftAsIs(kept)).toBe(2);
+    expect(placeOf(kept, grouped.tabId)).toBeNull();
+  });
+
+  it('groups "everything else" tabs by site when there are enough of them', () => {
+    const a = tab('other', { url: 'https://o2tv.com/a' });
+    const b = tab('other', { url: 'https://www.o2tv.com/b' });
+    const lone = tab('other', { url: 'https://paulgraham.com' });
+    const plan = planOrganise([a, b, lone], 2);
+    expect(plan.groups.map((g) => [g.key, g.title, g.tabIds])).toEqual([
+      ['site:o2tv.com', 'o2tv.com', [a.tabId, b.tabId]],
+    ]);
+    expect(plan.ungrouped).toEqual([lone.tabId]);
   });
 });

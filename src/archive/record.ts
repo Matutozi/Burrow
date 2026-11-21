@@ -8,12 +8,13 @@ import { CAPTURE_LIMITS, cleanText } from './capture';
 import { CONTENT_TYPES, type ContentType, type IndexPolicy } from '../prefs/types';
 
 /** Current record shape. Bump it and add a step in `migrateRecord` when the shape changes. */
-export const ARCHIVE_VERSION = 4;
+export const ARCHIVE_VERSION = 5;
 
 export const ARCHIVE_LIMITS = {
   maxTitleLength: 500,
   maxUrlLength: 4096,
   maxCategoryLength: 40,
+  maxLabelLength: 40,
 } as const;
 
 export interface ArchiveRecord {
@@ -35,6 +36,8 @@ export interface ArchiveRecord {
   category?: string;
   /** The Chrome tab group the tab was in, so reopening can put it back. (v4) */
   group?: GroupInfo;
+  /** The name the user saved it under when archiving, e.g. "School". (v5) */
+  label?: string;
 }
 
 /** Everything needed to archive one open tab. */
@@ -49,6 +52,8 @@ export interface ArchiveInput {
   category?: string;
   /** The tab's Chrome group, if any. */
   group?: GroupInfo;
+  /** "Save under" name chosen when archiving. */
+  label?: string;
 }
 
 type Raw = Record<string, unknown>;
@@ -92,6 +97,7 @@ export async function buildRecord(input: ArchiveInput, policy: IndexPolicy, now:
     ...withText(policy === 'full' ? input.text : undefined),
     ...withCategory(input.category),
     ...withGroup(input.group),
+    ...withLabel(input.label),
   };
 }
 
@@ -99,6 +105,16 @@ export async function buildRecord(input: ArchiveInput, policy: IndexPolicy, now:
 function withText(raw: unknown): Pick<ArchiveRecord, 'saved' | 'text'> {
   const text = cleanText(raw, CAPTURE_LIMITS.maxTextChars);
   return text ? { saved: 'full', text } : { saved: 'title' };
+}
+
+/** Tidies a "Save under" name: trimmed, single spaces, capped. Empty means none. */
+export function cleanLabel(raw: unknown): string {
+  return typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ').slice(0, ARCHIVE_LIMITS.maxLabelLength) : '';
+}
+
+function withLabel(raw: unknown): Pick<ArchiveRecord, 'label'> {
+  const label = cleanLabel(raw);
+  return label ? { label } : {};
 }
 
 function withGroup(raw: unknown): Pick<ArchiveRecord, 'group'> {
@@ -117,7 +133,7 @@ export function withoutText(record: ArchiveRecord): ArchiveRecord {
   return { ...rest, saved: 'title' };
 }
 
-/** Upgrades older stored shapes. v2 added optional `text`, v3 `category`, v4 `group`: older records are already valid. */
+/** Upgrades older stored shapes. v2 added optional `text`, v3 `category`, v4 `group`, v5 `label`: older records are already valid. */
 function migrateRecord(raw: Raw): Raw {
   return raw;
 }
@@ -144,7 +160,26 @@ export function sanitizeRecord(input: unknown, id: string): ArchiveRecord | null
     ...withText(raw.saved === 'full' ? raw.text : undefined),
     ...withCategory(raw.category),
     ...withGroup(raw.group),
+    ...withLabel(raw.label),
   };
+}
+
+/** The "Save under" names in use, most used first, with how many pages each holds. */
+export function labelsIn(records: ArchiveRecord[]): { name: string; count: number }[] {
+  const counts = new Map<string, { name: string; count: number }>();
+  for (const r of records) {
+    if (!r.label) continue;
+    // "School" and "school" are the same name; the first spelling seen is shown.
+    const key = r.label.toLowerCase();
+    const c = counts.get(key) ?? { name: r.label, count: 0 };
+    c.count++;
+    counts.set(key, c);
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+export function hasLabel(record: ArchiveRecord, name: string): boolean {
+  return record.label?.toLowerCase() === name.toLowerCase();
 }
 
 /** Newest first. */
@@ -163,7 +198,7 @@ export type ArchiveSearch = (query: string) => ArchiveRecord[];
  * each keystroke only scans. Every word in the query must appear somewhere in the record.
  */
 export function createArchiveSearch(records: ArchiveRecord[]): ArchiveSearch {
-  const hays = records.map((r) => `${r.title} ${r.url} ${r.category ?? ''} ${r.group?.title ?? ''} ${r.text ?? ''}`.toLowerCase());
+  const hays = records.map((r) => `${r.label ?? ''} ${r.title} ${r.url} ${r.category ?? ''} ${r.group?.title ?? ''} ${r.text ?? ''}`.toLowerCase());
   return (query) => {
     const words = queryWords(query);
     if (words.length === 0) return records;

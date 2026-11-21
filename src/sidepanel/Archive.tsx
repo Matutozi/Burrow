@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { createArchiveSearch, textSnippet, type ArchiveRecord } from '../archive/record';
-import { listArchive, onArchiveChanged, putRecords, removeRecords, restoreRecords } from '../archive/store';
+import { createArchiveSearch, hasLabel, labelsIn, textSnippet, type ArchiveRecord } from '../archive/record';
+import {
+  listArchive,
+  onArchiveChanged,
+  putRecords,
+  relabelRecords,
+  removeRecords,
+  restoreRecords,
+} from '../archive/store';
 import { hostOf } from '../prefs/classify';
 import { CONTENT_TYPE_LABELS, type Preferences } from '../prefs/types';
 import { pageOpener } from '../archive/chromeApi';
 import { DataControls } from './DataControls';
-import { ARCHIVE_TEXT, formatDate } from './format';
+import { ARCHIVE_TEXT, formatDate, LABEL_TEXT } from './format';
+import { LabelInput } from './LabelInput';
 import type { Notify } from './Toast';
 
 /** Rows rendered at once. More load on request, so huge archives stay fast. */
@@ -54,9 +62,39 @@ interface Props {
 export function ArchiveView({ prefs, records, notify, onBack }: Props) {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [chip, setChip] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+  const names = useMemo(() => labelsIn(records), [records]);
   const search = useMemo(() => createArchiveSearch(records), [records]);
   const activeQuery = useDebounced(query, SEARCH_DEBOUNCE_MS);
-  const matches = useMemo(() => search(activeQuery), [search, activeQuery]);
+  const matches = useMemo(() => {
+    const found = search(activeQuery);
+    return chip ? found.filter((r) => hasLabel(r, chip)) : found;
+  }, [search, activeQuery, chip]);
+  const filtered = activeQuery !== '' || chip !== null;
+
+  async function relabel(targets: ArchiveRecord[]) {
+    try {
+      const before = await relabelRecords(targets, newName);
+      const name = newName.trim();
+      setNewName('');
+      notify({
+        text: LABEL_TEXT.relabelled(targets.length, name),
+        undo: async () => {
+          try {
+            await putRecords(before);
+            notify({ text: LABEL_TEXT.undone });
+          } catch (err) {
+            console.error('Burrow: undo rename failed', err);
+            notify({ text: LABEL_TEXT.relabelFailed, error: true });
+          }
+        },
+      });
+    } catch (err) {
+      console.error('Burrow: rename failed', err);
+      notify({ text: LABEL_TEXT.relabelFailed, error: true });
+    }
+  }
   const shown = matches.slice(0, limit);
 
   async function deleteWithUndo(targets: ArchiveRecord[]) {
@@ -102,7 +140,7 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
       <input
         type="search"
         class="search"
-        placeholder="Search titles, addresses and saved text"
+        placeholder="Search names, titles, addresses and saved text"
         aria-label="Search archived pages"
         value={query}
         onInput={(e) => {
@@ -110,11 +148,50 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
           setLimit(PAGE_SIZE);
         }}
       />
+      {names.length > 0 && (
+        <div class="chips" role="group" aria-label="Saved under">
+          <button
+            type="button"
+            class={`chip${chip === null ? ' on' : ''}`}
+            aria-pressed={chip === null}
+            onClick={() => setChip(null)}
+          >
+            {LABEL_TEXT.all} ({records.length})
+          </button>
+          {names.map((n) => {
+            const on = chip !== null && chip.toLowerCase() === n.name.toLowerCase();
+            return (
+              <button
+                type="button"
+                class={`chip${on ? ' on' : ''}`}
+                aria-pressed={on}
+                onClick={() => {
+                  setChip(on ? null : n.name);
+                  setLimit(PAGE_SIZE);
+                }}
+              >
+                {n.name} ({n.count})
+              </button>
+            );
+          })}
+        </div>
+      )}
       <p class="summary">
-        {activeQuery
-          ? `${matches.length} of ${ARCHIVE_TEXT.count(records.length)}`
-          : ARCHIVE_TEXT.count(records.length)}
+        {filtered ? `${matches.length} of ${ARCHIVE_TEXT.count(records.length)}` : ARCHIVE_TEXT.count(records.length)}
       </p>
+      {filtered && matches.length > 0 && (
+        <div class="relabel">
+          <LabelInput
+            label={LABEL_TEXT.relabel(matches.length)}
+            value={newName}
+            onChange={setNewName}
+            suggestions={names.map((n) => n.name)}
+          />
+          <button type="button" class="secondary small" onClick={() => void relabel(matches)}>
+            {LABEL_TEXT.relabelButton}
+          </button>
+        </div>
+      )}
 
       {records.length === 0 && <p class="muted">{ARCHIVE_TEXT.empty}</p>}
       {records.length > 0 && matches.length === 0 && <p class="muted">{ARCHIVE_TEXT.noMatches}</p>}
@@ -128,6 +205,7 @@ export function ArchiveView({ prefs, records, notify, onBack }: Props) {
                 <span class="body">
                   <span class="title">{r.title || r.url}</span>
                   <span class="reason">
+                    {r.label && <span class="label-tag">{r.label}</span>}
                     <span class="type">{r.category ?? CONTENT_TYPE_LABELS[r.contentType]}</span>
                     {r.saved === 'full' && <span class="type">{ARCHIVE_TEXT.fullText}</span>}
                     {hostOf(r.url)} · {formatDate(r.archivedAt)}

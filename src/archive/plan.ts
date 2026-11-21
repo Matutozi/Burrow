@@ -50,6 +50,15 @@ export interface PlanOptions {
   /** Open tab groups, when tab group support is on. */
   groups?: GroupMap;
   /**
+   * The user picked these tabs in a preview, so the score threshold doesn't apply. Protection
+   * still does: an active, pinned or audible tab is never closed.
+   */
+  chosen?: boolean;
+  /** "Save under" name for every archived tab. */
+  label?: string;
+  /** Per-tab "Save under" names, which win over `label`. */
+  labels?: ReadonlyMap<number, string>;
+  /**
    * Automatic mode adds extra guards: a minimum untouched time, a per-run cap, no pages that
    * can't be archived, and never closing the last tab of a window.
    */
@@ -62,13 +71,13 @@ export interface PlanOptions {
  * tab, so windows can be counted.
  */
 export function planArchive(tabs: chrome.tabs.Tab[], opts: PlanOptions, allTabs: chrome.tabs.Tab[] = tabs): ArchivePlan {
-  const { scorer, prefs, activity, now, groups, auto = false } = opts;
+  const { scorer, prefs, activity, now, groups, label, labels, chosen = false, auto = false } = opts;
   const minAgeMs = prefs.autoArchiveAfterHours * HOUR_MS;
 
   let picked = tabs.flatMap((tab) => {
     if (tab.id === undefined || tab.incognito) return [];
     const result = scorer.score(signalsOf(tab, activity, now, groups), now);
-    if (!scorer.isArchiveCandidate(result)) return [];
+    if (chosen ? result.protected : !scorer.isArchiveCandidate(result)) return [];
     const url = tab.url ?? '';
     const policy = result.indexPolicy;
     if (auto) {
@@ -106,6 +115,7 @@ export function planArchive(tabs: chrome.tabs.Tab[], opts: PlanOptions, allTabs:
       score: result.score,
       category: result.category?.name,
       group: groups?.get(tab.groupId),
+      label: labels?.get(id) ?? label,
     };
     return { tabId: id, input, policy };
   });

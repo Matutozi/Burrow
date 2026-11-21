@@ -1,10 +1,20 @@
-import { PREFERENCES_VERSION, type ContentType, type IndexPolicy, type Persona, type Preferences, type Priority, type ScoringWeights } from './types';
+import {
+  PREFERENCES_VERSION,
+  type ContentType,
+  type IndexPolicy,
+  type Persona,
+  type Preferences,
+  type Priority,
+  type ScoringWeights,
+} from './types';
 
 const ALL_NORMAL: Record<ContentType, Priority> = {
   docs: 'normal',
   article: 'normal',
   video: 'normal',
   code: 'normal',
+  learning: 'normal',
+  jobs: 'normal',
   work: 'normal',
   news: 'normal',
   social: 'normal',
@@ -17,7 +27,15 @@ const ALL_NORMAL: Record<ContentType, Priority> = {
 
 /** Starting priorities for each persona. The user can change any of them afterwards. */
 export const PERSONA_PRIORITIES: Record<Persona, Record<ContentType, Priority>> = {
-  student: { ...ALL_NORMAL, docs: 'high', article: 'high', social: 'low', shopping: 'low' },
+  student: {
+    ...ALL_NORMAL,
+    docs: 'high',
+    article: 'high',
+    learning: 'high',
+    jobs: 'high',
+    social: 'low',
+    shopping: 'low',
+  },
   developer: {
     ...ALL_NORMAL,
     docs: 'high',
@@ -27,7 +45,7 @@ export const PERSONA_PRIORITIES: Record<Persona, Record<ContentType, Priority>> 
     shopping: 'low',
     news: 'low',
   },
-  researcher: { ...ALL_NORMAL, article: 'high', docs: 'high', social: 'low', shopping: 'low' },
+  researcher: { ...ALL_NORMAL, article: 'high', docs: 'high', learning: 'high', social: 'low', shopping: 'low' },
   creator: { ...ALL_NORMAL, video: 'high', article: 'high', social: 'normal', shopping: 'low' },
   general: { ...ALL_NORMAL },
 };
@@ -46,6 +64,9 @@ export const DEFAULT_INDEX_POLICY: Record<ContentType, IndexPolicy> = {
   article: 'full',
   video: 'title',
   code: 'full',
+  learning: 'full',
+  // Applications can hold personal details, so only the title is kept by default.
+  jobs: 'title',
   work: 'title',
   news: 'full',
   social: 'title',
